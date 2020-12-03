@@ -78,6 +78,15 @@ Alternativ können Sie die Klasse FecHandler auch komplett neu entwerfen und nur
 * ist ein RTP-Paket nicht vorhanden, dann Prüfung auf Korrigierbarkeit `checkCorrection()` und u.U. Korrektur `correctRTP()`
 * periodisches Löschen alter nicht mehr benötigter Einträge im Jitterpuffer
 
+##### FECpacket
+* Ableitung aus vorhandenem RTPpacket
+* Sender: Konstruktor zur Generierung eines FEC-Objektes aus Media-RTPs
+* Empfänger: Konstruktur zur Generierung eines FEC-Objektes aus einem empfangenen FEC-RTP
+* getRtpList: Ermittlung aller in einem FEC involvierten Media-RTPs
+* getPacket: Holt komplettes FEC-Paket als Bytearray
+* addRtp: fügt ein Media-RTP zum FEC-Objekt hinzu, inklusive aller notwendigen Berechnungen
+* getLostRtp: generiert das verlorene Media-RTP aus den vorhandenen mittels addRtp hinzugefügten RTPs
+
 #### Debugging
 Es ist relativ unwahrscheinlich, dass das Programm auf Anhieb fehlerfrei funktioniert. Deshalb ist es wichtig, ein Konzept für die Fehlersuche zu entwickeln.
 Hier einige Tipps für die Fehlersuche:

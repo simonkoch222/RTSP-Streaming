@@ -100,7 +100,7 @@ Hier einige Tipps für die Fehlersuche:
 
 ### 7. Test und Dokumentation
 
-## Video
+#### Video
 Binden Sie ein kurzes (ca. 1-2 min) Video ein. Eine Umcodierung zu MJPEG kann zum Beispiel mittels VLC-Player erfolgen. Eventuell müssen Sie die Auflösung des Videos verringern, damit die Bilder jeweisl in ein UDP-Paket passen.
 
 #### Parameterwahl

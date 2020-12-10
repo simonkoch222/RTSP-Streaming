@@ -97,22 +97,31 @@ Hier einige Tipps für die Fehlersuche:
 * Test ohne bzw. mit Fehlerkorrektur
 * Test der Anzahl verlorener / wiederhergestellter Pakete auf Plausibilität
 
+
+### 7. Test und Dokumentation
+
+## Video
+Binden Sie ein kurzes (ca. 1-2 min) Video ein. Eine Umcodierung zu MJPEG kann zum Beispiel mittels VLC-Player erfolgen. Eventuell müssen Sie die Auflösung des Videos verringern, damit die Bilder jeweisl in ein UDP-Paket passen.
+
 #### Parameterwahl
 Finden Sie den optimalen Wert für k bei einer Kanalverlustrate von 10%. Optimal bedeutet in diesem Fall eine subjektiv zufriedenstellende Bildqualität bei geringstmöglicher Redundanz.
 
+#### Bestimmung der theoretisch zu erwartenden Verlustraten
+Versuchen Sie, mathematisch die Paketverlustwahrscheinlichkeit (Restfehler) für verschiedene Gruppengrößen (k=2, 3, 5, 10, 20, 48) zu bestimmen.
+Tragen Sie die Ergebnisse in einem Diagramm über der Kanalfehlerwahrscheinlichkeit auf. Sie können hierfür Gnuplot, R oder ein anderes Tool nutzen. Tragen Sie in das Diagramm zusätzlich mit Ihrem Videostreaming praktisch gemessene Fehlerhäufigkeiten auf (k=2 und k=48). Diskutieren Sie eventuelle Unterschiede zum theoretisch ermittelten Ergebnis.
+
 
 #### Kompatibilität
-Prüfen Sie die Kompatibilität des Clients und Servers mit dem VLC-Player und versuchen Sie eventuelle Probleme zu analysieren.
+Prüfen Sie die Kompatibilität des Clients und Servers mit dem VLC-Player und versuchen Sie eventuelle Probleme zu analysieren. Bei Problemen mit VLC 3 versuchen Sie VLC 2.2.
+
+
+#### Dokumentation
+Im Falle einer eigenen Architektur des FecHandlers ist eine Dokumentation notwendig, ansonsten nicht.
+Beschreiben Sie die Architektur Ihrer Implementierung anhand sinnvoller Softwarebeschreibungsmethoden (Klassendiagramm, Zustandsdiagramm, etc.). Eine Quellcodekommentierung ist dazu nicht ausreichend!
 
 #### Vorschläge
 Manchen Sie konkrete Vorschläge zur Verbesserungen des Belegs.
 
-#### Dokumentation
-Im Falle einer eigenen Architektur ist eine Dokumentation notwendig, ansonsten nicht.
-Dokumentieren Sie Ihr Projekt. Beschreiben Sie die Architektur Ihrer Implementierung anhand sinnvoller Softwarebeschreibungsmethoden (Klassendiagramm, Zustandsdiagramm, etc.). Eine Quellcodekommentierung ist dazu nicht ausreichend!
-
-## Optional
-Binden Sie bei Bedarf ein eigenes Video ein. Eine Umcodierung zu MJPEG kann zum Beispiel mittels VLC-Player erfolgen.
 
 
 ## Literatur

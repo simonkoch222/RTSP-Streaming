@@ -101,7 +101,7 @@ Hier einige Tipps für die Fehlersuche:
 ### 7. Test und Dokumentation
 
 #### Video
-Binden Sie ein kurzes (ca. 1-2 min) Video ein. Eine Umcodierung zu MJPEG kann zum Beispiel mittels VLC-Player erfolgen. Eventuell müssen Sie die Auflösung des Videos verringern, damit die Bilder jeweisl in ein UDP-Paket passen.
+Binden Sie ein kurzes (ca. 0,5 - 2 min) Video Ihrer Wahl ein. Eine Umcodierung zu MJPEG kann zum Beispiel mittels VLC-Player erfolgen. Eventuell müssen Sie die Auflösung des Videos verringern, damit die Bilder jeweils in ein UDP-Paket passen.
 
 #### Parameterwahl
 Finden Sie den optimalen Wert für k bei einer Kanalverlustrate von 10%. Optimal bedeutet in diesem Fall eine subjektiv zufriedenstellende Bildqualität bei geringstmöglicher Redundanz.

@@ -40,6 +40,8 @@ public class Client {
   JProgressBar progressPosition = new JProgressBar(0, videoLength);
   JCheckBox checkBoxFec = new JCheckBox("FEC");
 
+  int iteration = 0;
+
   // RTP variables:
   // ----------------
   DatagramSocket RTPsocket; // socket to be used to send and receive UDP packets
@@ -388,7 +390,11 @@ public class Client {
       int puffer = fec.getSeqNr() - fec.getPlayCounter();
       progressBuffer.setValue(puffer);
       progressPosition.setValue(fec.getPlayCounter());
-      setStatistics();
+      if (iteration % 5 == 0) {
+        setStatistics();
+        iteration = 0;
+      }
+      iteration++;
 
       // check for beginning of display JPEGs
       if ((puffer < jitterBufferSize) && !videoStart) {

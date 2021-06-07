@@ -1,6 +1,8 @@
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * @author Jörg Vogt
@@ -127,6 +129,7 @@ public class FecHandler {
    * @param rtp the received RTP
    */
   public void rcvRtpPacket(RTPpacket rtp) {
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
     int seqNr = rtp.getsequencenumber();
     // if first packet set playcounter below seqNr
     if (rtpStack.size() == 0) playCounter = seqNr - 1;
@@ -141,8 +144,8 @@ public class FecHandler {
       if (list == null) list = new ArrayList<>();
       list.add(seqNr);
       tsList.put( ts, list );
-      System.out.println("FEC: set media nr: " + seqNr);
-      System.out.println("FEC: set ts-list: " + (0xFFFFFFFFL & ts) + " " + list.toString());
+      logger.log(Level.FINER, "FEC: set media nr: " + seqNr);
+      logger.log(Level.FINER, "FEC: set ts-list: " + (0xFFFFFFFFL & ts) + " " + list.toString());
     } else {
       rcvFecPacket(rtp);
     }
@@ -154,6 +157,7 @@ public class FecHandler {
    * @param rtp the received FEC-RTP
    */
   private void rcvFecPacket(RTPpacket rtp) {
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
     // build fec from rtp
     fec = new FECpacket(rtp.getpacket(), rtp.getpacket().length);
     // TASK remove comment for debugging
@@ -166,7 +170,7 @@ public class FecHandler {
 
     // get RTP List
     ArrayList<Integer> list = fec.getRtpList();
-    System.out.println("FEC: set list: " + seqNrFec + " " + list.toString());
+    logger.log(Level.FINER, "FEC: set list: " + seqNrFec + " " + list.toString());
 
     // set list to get fec packet nr
     list.forEach((E) -> fecNr.put(E, seqNrFec)); // FEC-packet
@@ -212,21 +216,22 @@ public class FecHandler {
    * @return RTPpacket
    */
   private RTPpacket getRtp(int snr) {
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
     snr = snr % 0x10000; // account overflow of SNr (16 Bit)
     RTPpacket rtp = rtpStack.get(snr);
-    System.out.println("FEC: get RTP nr: " + snr);
+    logger.log(Level.FINE, "FEC: get RTP nr: " + snr);
 
     // check if correction is possible
     if (rtp == null) {
-      System.out.println("FEC: Media lost: " + snr);
+      logger.log(Level.WARNING, "FEC: Media lost: " + snr);
       nrLost++;
       if (checkCorrection(snr) && useFec) {
         nrCorrected++;
-        System.out.println("---> FEC: correctable: " + snr);
+        logger.log(Level.INFO, "---> FEC: correctable: " + snr);
         return correctRtp(snr);
       } else {
         nrNotCorrected++;
-        System.err.println("---> FEC: not correctable: " + snr);
+        logger.log(Level.INFO, "---> FEC: not correctable: " + snr);
         return null;
       }
     }
@@ -240,6 +245,7 @@ public class FecHandler {
    * @return List
    */
   public ArrayList<RTPpacket> getNextRtpList() {
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
     nrFramesRequested++;
     playCounter++;
     ArrayList<RTPpacket> list = new ArrayList<>();
@@ -262,7 +268,7 @@ public class FecHandler {
     playCounter = playCounter + rtpList.size()-1; // set to snr of last packet
     //TODO if list is fragmented return null or implement JPEG error concealment
 
-    System.out.println("-> Get list of " + list.size() + " RTPs with TS: " + (0xFFFFFFFFL & ts));
+    logger.log(Level.FINER, "-> Get list of " + list.size() + " RTPs with TS: " + (0xFFFFFFFFL & ts));
     return list;
   }
 

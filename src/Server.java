@@ -469,6 +469,9 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
   private String describe() {
     StringWriter rtspHeader = new StringWriter();
     StringWriter rtspBody = new StringWriter();
+    int framerate = 25;
+    double duration = 0.0; // seconds
+
 
     // Write the body first so we can get the size later
     rtspBody.write("v=0" + CRLF);

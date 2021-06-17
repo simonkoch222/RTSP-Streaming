@@ -85,6 +85,8 @@ public class Client {
   // ------------------
   // static int MJPEG_TYPE = 26; // RTP payload type for MJPEG video
   static final int FRAME_RATE = 40;
+  private int framerate = 0;
+  private double duration = 0.0; // in s
 
   public Client() {
     // build GUI
@@ -208,6 +210,13 @@ public class Client {
       logger.log(Level.INFO, "Setup Button pressed !");
 
       if (state == INIT) {
+        if (framerate == 0) { // no information on media available
+          send_RTSP_request("DESCRIBE");
+          if (parse_server_response() != 200) { // block and wait for response
+            logger.log(Level.WARNING, "Invalid Server Response");
+          }
+        }
+
         // Init non-blocking RTPsocket that will be used to receive data
         try {
           // TASK construct a new DatagramSocket to receive server RTP packets on port RTP_RCV_PORT
@@ -223,7 +232,11 @@ public class Client {
           // Init the FEC-handler
           fec = new FecHandler( checkBoxFec.isSelected() );
           // Init the play timer
-          timerPlay = new Timer(FRAME_RATE, new timerPlayListener());
+          int timerDelay = FRAME_RATE; // use default delay
+          if (framerate != 0) { // if information available, use that
+            timerDelay = 1000/framerate; // delay in ms
+          }
+          timerPlay = new Timer(timerDelay, new timerPlayListener());
           timerPlay.setCoalesce(true); // combines events
 
           // timerPlay.setInitialDelay(0);
@@ -569,6 +582,23 @@ public class Client {
     int data = RTSPBufferedReader.read(cbuf, 0, cl);
     logger.log(Level.INFO, "Data: " + data);
     logger.log(Level.INFO, new String(cbuf));
+
+    String sbuf[] = new String(cbuf).split(CRLF);
+    for (int i = 0; i < sbuf.length; i++) {
+      if (sbuf[i].contains("framerate")) {
+        String sfr = sbuf[i].split(":")[1];
+        framerate = Integer.parseInt(sfr);
+        logger.log(Level.INFO, "framerate: " + framerate);
+      } else if (sbuf[i].contains("range:npt")) {
+        String sdur[] = sbuf[i].split("-");
+        if (sdur.length > 1) {
+          duration = Double.parseDouble(sdur[1]);
+          logger.log(Level.INFO, "duration [s]: " + duration);
+          progressPosition.setMaximum((int)duration);
+        } // else: no duration available
+      } // else: other attributes are not recognized here
+    }
+
     logger.log(Level.INFO, "Finished Content Reading...");
   }
 

@@ -70,6 +70,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
   static String VideoDir = "videos/";
   static int RTSP_ID = 123456; // ID of the RTSP session
   int RTSPSeqNb = 0; // Sequence number of RTSP messages within the session
+  String sdpTransportLine = "";
 
   static final String CRLF = "\r\n";
 
@@ -77,6 +78,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
 
   public Server() {
     super("Server"); // init Frame
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
     // init Timer
     timer = new Timer(FRAME_PERIOD, this);
@@ -118,6 +120,12 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     mainPanel.add(groupSize);
     mainPanel.add(dropRate);
     getContentPane().add(mainPanel, BorderLayout.CENTER);
+
+    try {
+      RTPsocket = new DatagramSocket();
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Exception caught: " + e);
+    }
   }
 
   /**
@@ -195,6 +203,10 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
           stateLabel.setText("READY");
           logger.log(Level.INFO, "New RTSP state: READY");
 
+          // init RTP socket and FEC
+          // theServer.RTPsocket = new DatagramSocket();
+          theServer.fec = new FecHandler(startGroupSize);
+
           // Send response
           theServer.send_RTSP_response(SETUP);
 
@@ -202,9 +214,6 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
           theServer.video = new VideoReader(VideoFileName);
           imagenb = 0;
 
-          // init RTP socket and FEC
-          theServer.RTPsocket = new DatagramSocket();
-          theServer.fec = new FecHandler(startGroupSize);
           break;
 
         case PLAY:
@@ -242,7 +251,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
           theServer.timer.stop();
           // close sockets
           //theServer.RTSPsocket.close();
-          theServer.RTPsocket.close();
+          // theServer.RTPsocket.close();
           break;
 
         case OPTIONS:
@@ -385,32 +394,25 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
         logger.log(Level.CONFIG, "File: " + VideoFileName);
       }
 
-      // parse the SeqNumLine and extract CSeq field
-      String SeqNumLine = RTSPBufferedReader.readLine();
-      logger.log(Level.CONFIG, SeqNumLine);
-      tokens = new StringTokenizer(SeqNumLine);
-      tokens.nextToken();
-      RTSPSeqNb = Integer.parseInt(tokens.nextToken());
+      String line = "";
+      line = RTSPBufferedReader.readLine();
+      while (!line.equals("")) {
+        logger.log(Level.FINE, line);
+        if (line.contains("CSeq")) {
+          tokens = new StringTokenizer(line);
+          tokens.nextToken();
+          RTSPSeqNb = Integer.parseInt(tokens.nextToken());
+        } else if (line.contains("Transport")) {
+          sdpTransportLine = line;
+          RTP_dest_port = Integer.parseInt( line.split("=")[1].split("-")[0] );
+          FEC_dest_port = RTP_dest_port + 0;
+          logger.log(Level.FINE, "Client-Port: " + RTP_dest_port);
+        }
+        // else is any other field, not checking for now
 
-      // get LastLine
-      String LastLine = RTSPBufferedReader.readLine();
-      logger.log(Level.CONFIG, LastLine);
-
-      if (request_type == SETUP) {
-        // extract RTP_dest_port after Char "="
-        RTP_dest_port = Integer.parseInt( LastLine.split("=")[1].split("-")[0] );
-        FEC_dest_port = RTP_dest_port + 0;
-        logger.log(Level.FINE, "Client-Port: " + RTP_dest_port);
+        line = RTSPBufferedReader.readLine();
       }
-      // else LastLine will be the SessionId line ... do not check for now.
 
-      // Read until end of request (empty line)
-      while (!LastLine.equals("")) {
-
-        logger.log(Level.FINE, LastLine);
-        LastLine = RTSPBufferedReader.readLine();
-
-      }
       logger.log(Level.INFO, "*** Request received ***\n");
 
     } catch (Exception ex) {
@@ -434,13 +436,21 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
       RTSPBufferedWriter.write("CSeq: " + RTSPSeqNb + CRLF);
 
       // 3th line depends on Request
-      if (method == OPTIONS) {
-        RTSPBufferedWriter.write(options() );
-      } else if (method == DESCRIBE) {
-        RTSPBufferedWriter.write(describe() );
-
-      } else {
-        RTSPBufferedWriter.write("Session: " + RTSP_ID + CRLF);
+      switch (method) {
+        case OPTIONS:
+          RTSPBufferedWriter.write(options() );
+          break;
+        case DESCRIBE:
+          RTSPBufferedWriter.write(describe() );
+          break;
+        case SETUP:
+          RTSPBufferedWriter.write(sdpTransportLine + ";server_port=");
+          RTSPBufferedWriter.write(RTPsocket.getLocalPort() + "-");
+          RTSPBufferedWriter.write((RTPsocket.getLocalPort()+1) + "" + CRLF);
+          // RTSPBufferedWriter.write(";ssrc=0;mode=play" + CRLF);
+        default:
+          RTSPBufferedWriter.write("Session: " + RTSP_ID + ";timeout=30000" + CRLF);
+          break;
       }
 
       // Send end of response

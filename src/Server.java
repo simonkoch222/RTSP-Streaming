@@ -520,6 +520,9 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
       case "avi":
         meta = AviMetadataParser.parse(filename);
         break;
+      case "mov":
+        meta = QuickTimeMetadataParser.parse(filename);
+        break;
       default:
         logger.log(Level.WARNING, "File extension not recognized: " + filename);
       case "mjpg":

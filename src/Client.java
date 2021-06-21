@@ -594,7 +594,7 @@ public class Client {
         if (sdur.length > 1) {
           duration = Double.parseDouble(sdur[1]);
           logger.log(Level.INFO, "duration [s]: " + duration);
-          progressPosition.setMaximum((int)duration);
+          progressPosition.setMaximum((int)duration * framerate);
         } // else: no duration available
       } // else: other attributes are not recognized here
     }

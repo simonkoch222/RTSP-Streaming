@@ -296,8 +296,9 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
         frame = jpegFrame.getAsRfc2435Bytes();
 
         // Builds an RTPpacket object containing the frame
+        // time has to be in scale with 90000 Hz (RFC 2435, 3.)
         RTPpacket rtp_packet =
-            new RTPpacket(MJPEG_TYPE, imagenb, imagenb * DEFAULT_FRAME_PERIOD, frame, frame.length);
+            new RTPpacket(MJPEG_TYPE, imagenb, imagenb * (90000 / videoMeta.getFramerate()), frame, frame.length);
 
         // retrieve the packet bitstream as array of bytes
         packet_bits = rtp_packet.getpacket();

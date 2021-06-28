@@ -53,6 +53,8 @@
  */
 
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class FECpacket extends RTPpacket {
   private static final int FEC_HEADER_SIZE = 10;
@@ -224,7 +226,8 @@ public class FECpacket extends RTPpacket {
    */
   @Override
   public byte[] getpacket() {
-    System.out.println("FEC packet: " + payload_size + " " + payload.length);
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+    logger.log(Level.FINER, "FEC packet: " + payload_size + " " + payload.length);
     byte[] packet = new byte[payload_size + headerAll];
     setRtpHeader(); // set RTP Header again because of changing time stamp
     // RTP Header from array
@@ -347,11 +350,12 @@ public class FECpacket extends RTPpacket {
    * Prints the FEC- and ULP-Header fields
    */
   public void printHeaders() {
-    System.out.println("FEC-Header");
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+    logger.log(Level.FINER, "FEC-Header");
     printheader(FEC_HEADER_SIZE, fecHeader);
-    System.out.println("FEC-Level-Header");
+    logger.log(Level.FINER, "FEC-Level-Header");
     printheader(ulpLevelHeader.length, ulpLevelHeader);
-    System.out.println("FEC-Payload");
+    logger.log(Level.FINER, "FEC-Payload");
     printheader(3, payload);
   }
 }

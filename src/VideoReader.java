@@ -18,6 +18,10 @@ public class VideoReader {
   private FileInputStream fileInputStream;
   private boolean isClosed = true;
 
+  int bufferSize;
+  byte[] buffer;
+  int bufferOffset;
+
   /**
    * Initialisiert den Video-Reader inkl. File Input Stream.
    *
@@ -43,6 +47,10 @@ public class VideoReader {
           }
         };
     this.isClosed = false;
+
+    this.bufferSize = 65536;
+    this.buffer = new byte[this.bufferSize];
+    this.bufferOffset = 0;
   }
 
   /** Schließt den Input-Stream, wenn dieser initialisiert und nicht geschlossen ist. */
@@ -65,69 +73,82 @@ public class VideoReader {
    * @throws IOException IOException
    */
   public byte[] readNextImage() throws IOException {
+    byte[] image = new byte[0];
+    boolean jpegFound = false;
+
     // Prüft das der Input-Stream initialisiert und nicht geschlossen ist.
     if (fileInputStream != null && !isClosed) {
-      // Puffer für die Bytes eines Bildes, inklusive SOI- und EOI-Marker.
-      final List<Byte> imageBytes = new ArrayList<>();
-      // Puffer für das nächste eingelesene Byte
-      final byte[] nxtByte = new byte[1];
       // Zähler für enthaltene SOI-Marker, für die noch kein EOI gelesen wurde.
       int soiCount = 0;
-      // Gibt an, ob ein Markeranfang (0xFF) gelesen wurde.
-      Byte markerStartBytes = null;
 
-      // Lese solange Bytes, bis das Dateiende erreicht ist.
-      while (fileInputStream.read(nxtByte, 0, nxtByte.length) != -1) {
-        final byte currentByte = nxtByte[0];
+      // Lese solange Bytes, bis Bild gefunden oder Dateiende
+      while (!jpegFound) {
+        int soiPos = -1;
+        int eoiPos = -1;
+        int nbytes = fileInputStream.read(buffer, bufferOffset, buffer.length - bufferOffset);
+        if (nbytes == -1) {
+          break;
+        }
+        bufferOffset += nbytes;
 
-        if (currentByte == JpegFrame.MARKER_TAG_START) {
-          // Marker startet (0xFF)
-          markerStartBytes = currentByte;
-        } else if (markerStartBytes != null) {
-          if (currentByte == JpegFrame.SOI_MARKER[1]) {
-            // SOI Marker (0xD8)
-            imageBytes.add(markerStartBytes);
-            soiCount++;
-          } else if (currentByte == JpegFrame.EOI_MARKER[1]) {
-            // EOI Marker (0xD9)
-            soiCount--;
-
-            if (soiCount == 0) {
-              // Ende des Bildes erreicht.
-              imageBytes.add(currentByte);
-              break;
+        // Durchsuche gelesene Daten
+        for (int i = 0; i < bufferOffset-1; i++) {
+          if (buffer[i] == JpegFrame.MARKER_TAG_START) {
+            if (buffer[i+1] == JpegFrame.SOI_MARKER[1]) {
+              if (soiCount == 0) {
+                soiPos = i;
+              }
+              soiCount++;
+            } else if (buffer[i+1] == JpegFrame.EOI_MARKER[1]) {
+              soiCount--;
+              if (soiCount == 0) {
+                eoiPos = i+2; // EOI Marker mit kopieren
+                jpegFound = true;
+                break;
+              }
             }
+            // else: Andere Marker oder Daten
           }
-          markerStartBytes = null;
         }
 
-        // Kein Marker aber innerhalb des SOI
-        if (soiCount > 0) {
-          // Nur Bytes innerhalb von SOI und EOI gehören zum Bild.
-          imageBytes.add(currentByte);
+        int copyStart = 0;
+        int copyEnd = bufferOffset;
+
+        if (soiPos != -1) {
+          copyStart = soiPos;
+        }
+        if (eoiPos != -1) {
+          copyEnd = eoiPos;
+        }
+        if (soiCount == 0 && soiPos == -1 && eoiPos == -1) {
+          copyStart = -1;
+          copyEnd = -1;
+        }
+
+        if (copyStart != -1 && copyEnd != -1) {
+          int copyLength = copyEnd - copyStart;
+          byte[] tmpImage = new byte[image.length + (copyLength)];
+          System.arraycopy(image, 0, tmpImage, 0, image.length);
+          System.arraycopy(buffer, copyStart, tmpImage, image.length, copyLength);
+          image = tmpImage;
+
+          buffer = Arrays.copyOfRange(buffer, copyEnd, copyEnd + bufferSize);
+          bufferOffset = bufferSize - copyEnd;
+        } else {
+          bufferOffset = 0;
         }
       }
 
       // Input-Stream wurde geschlossen oder es konnten keine Bytes gelesen werden.
-      if (this.isClosed || imageBytes.isEmpty()) {
+      if (this.isClosed || !jpegFound) {
         return null;
       }
 
-      // Transformiere Liste in ein Byte Array
-      final byte[] result = new byte[imageBytes.size()];
-      for (int i = 0; i < result.length; i++) {
-        result[i] = imageBytes.get(i);
-      }
-
-      // JPEG muss mit SOI beginnen und mit EOI enden
-      if (Arrays.equals(
-          JpegFrame.EOI_MARKER, Arrays.copyOfRange(result, result.length - 2, result.length))
-          && Arrays.equals(JpegFrame.SOI_MARKER, Arrays.copyOf(result, 2))) {
-        return result;
-      }
+    }
+    if (image.length == 0) {
       return null;
     } else {
-      return null;
+      return image;
     }
   }
 }

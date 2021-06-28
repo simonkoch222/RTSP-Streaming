@@ -1,3 +1,6 @@
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 public class RTPpacket {
 
   /*
@@ -218,13 +221,13 @@ public class RTPpacket {
 
 
   void printheader(int size, byte[] data) {
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+    String b = "";
     for (int i = 0; i < size; i++) {
-      for (int j = 7; j >= 0; j--)
-        if (((1 << j) & data[i]) != 0) System.out.print("1");
-        else System.out.print("0");
-      System.out.print(" ");
+      b += String.format("%8s", Integer.toBinaryString(data[i] & 0xFF)).replace(' ', '0');
+      b += " ";
     }
-    System.out.println();
+    logger.log(Level.FINER, b);
   }
 
 

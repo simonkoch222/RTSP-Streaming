@@ -42,7 +42,8 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
   static int imagenb = 0; // image nb of the image currently transmitted
   VideoReader video; // VideoStream object used to access video frames
   static int MJPEG_TYPE = 26; // RTP payload type for MJPEG video
-  static int FRAME_PERIOD = 40; // Frame period of the video to stream, in ms
+  static int DEFAULT_FRAME_PERIOD = 40; // Frame period of the video to stream, in ms
+  public VideoMetadata videoMeta = null;
 
   Timer timer; // timer used to send the images at the video frame rate
   // byte[] buf; // buffer used to store the images to send to the client
@@ -66,10 +67,11 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
   // input and output stream filters
   static BufferedReader RTSPBufferedReader;
   static BufferedWriter RTSPBufferedWriter;
-  static String VideoFileName; // video file requested from the client
+  static String VideoFileName = ""; // video file requested from the client
   static String VideoDir = "videos/";
   static int RTSP_ID = 123456; // ID of the RTSP session
   int RTSPSeqNb = 0; // Sequence number of RTSP messages within the session
+  String sdpTransportLine = "";
 
   static final String CRLF = "\r\n";
 
@@ -77,11 +79,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
 
   public Server() {
     super("Server"); // init Frame
-
-    // init Timer
-    timer = new Timer(FRAME_PERIOD, this);
-    timer.setInitialDelay(0);
-    timer.setCoalesce(false); // Coalesce can lead to buffer underflow in client
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
     // Handler to close the main window
     addWindowListener(
@@ -118,6 +116,12 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     mainPanel.add(groupSize);
     mainPanel.add(dropRate);
     getContentPane().add(mainPanel, BorderLayout.CENTER);
+
+    try {
+      RTPsocket = new DatagramSocket();
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Exception caught: " + e);
+    }
   }
 
   /**
@@ -195,6 +199,19 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
           stateLabel.setText("READY");
           logger.log(Level.INFO, "New RTSP state: READY");
 
+          if (theServer.videoMeta == null) {
+            theServer.videoMeta = Server.getVideoMetadata(VideoFileName);
+          }
+
+          // init Timer
+          theServer.timer = new Timer(1000 / theServer.videoMeta.getFramerate(), theServer);
+          theServer.timer.setInitialDelay(0);
+          theServer.timer.setCoalesce(false); // Coalesce can lead to buffer underflow in client
+
+          // init RTP socket and FEC
+          // theServer.RTPsocket = new DatagramSocket();
+          theServer.fec = new FecHandler(startGroupSize);
+
           // Send response
           theServer.send_RTSP_response(SETUP);
 
@@ -202,9 +219,6 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
           theServer.video = new VideoReader(VideoFileName);
           imagenb = 0;
 
-          // init RTP socket and FEC
-          theServer.RTPsocket = new DatagramSocket();
-          theServer.fec = new FecHandler(startGroupSize);
           break;
 
         case PLAY:
@@ -240,9 +254,10 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
           theServer.send_RTSP_response(TEARDOWN);
           // stop timer
           theServer.timer.stop();
+          theServer.videoMeta = null;
           // close sockets
           //theServer.RTSPsocket.close();
-          theServer.RTPsocket.close();
+          // theServer.RTPsocket.close();
           break;
 
         case OPTIONS:
@@ -281,8 +296,9 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
         frame = jpegFrame.getAsRfc2435Bytes();
 
         // Builds an RTPpacket object containing the frame
+        // time has to be in scale with 90000 Hz (RFC 2435, 3.)
         RTPpacket rtp_packet =
-            new RTPpacket(MJPEG_TYPE, imagenb, imagenb * FRAME_PERIOD, frame, frame.length);
+            new RTPpacket(MJPEG_TYPE, imagenb, imagenb * (90000 / videoMeta.getFramerate()), frame, frame.length);
 
         // retrieve the packet bitstream as array of bytes
         packet_bits = rtp_packet.getpacket();
@@ -375,7 +391,8 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
           break;
       }
 
-      if (request_type == SETUP) {
+      if (request_type == SETUP
+              || request_type == DESCRIBE) {
         // extract VideoFileName from RequestLine
         String dir = tokens.nextToken();
         //String[] tok = dir.split(".+?/(?=[^/]+$)");
@@ -385,32 +402,25 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
         logger.log(Level.CONFIG, "File: " + VideoFileName);
       }
 
-      // parse the SeqNumLine and extract CSeq field
-      String SeqNumLine = RTSPBufferedReader.readLine();
-      logger.log(Level.CONFIG, SeqNumLine);
-      tokens = new StringTokenizer(SeqNumLine);
-      tokens.nextToken();
-      RTSPSeqNb = Integer.parseInt(tokens.nextToken());
+      String line = "";
+      line = RTSPBufferedReader.readLine();
+      while (!line.equals("")) {
+        logger.log(Level.FINE, line);
+        if (line.contains("CSeq")) {
+          tokens = new StringTokenizer(line);
+          tokens.nextToken();
+          RTSPSeqNb = Integer.parseInt(tokens.nextToken());
+        } else if (line.contains("Transport")) {
+          sdpTransportLine = line;
+          RTP_dest_port = Integer.parseInt( line.split("=")[1].split("-")[0] );
+          FEC_dest_port = RTP_dest_port + 0;
+          logger.log(Level.FINE, "Client-Port: " + RTP_dest_port);
+        }
+        // else is any other field, not checking for now
 
-      // get LastLine
-      String LastLine = RTSPBufferedReader.readLine();
-      logger.log(Level.CONFIG, LastLine);
-
-      if (request_type == SETUP) {
-        // extract RTP_dest_port after Char "="
-        RTP_dest_port = Integer.parseInt( LastLine.split("=")[1].split("-")[0] );
-        FEC_dest_port = RTP_dest_port + 0;
-        logger.log(Level.FINE, "Client-Port: " + RTP_dest_port);
+        line = RTSPBufferedReader.readLine();
       }
-      // else LastLine will be the SessionId line ... do not check for now.
 
-      // Read until end of request (empty line)
-      while (!LastLine.equals("")) {
-
-        logger.log(Level.FINE, LastLine);
-        LastLine = RTSPBufferedReader.readLine();
-
-      }
       logger.log(Level.INFO, "*** Request received ***\n");
 
     } catch (Exception ex) {
@@ -434,13 +444,21 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
       RTSPBufferedWriter.write("CSeq: " + RTSPSeqNb + CRLF);
 
       // 3th line depends on Request
-      if (method == OPTIONS) {
-        RTSPBufferedWriter.write(options() );
-      } else if (method == DESCRIBE) {
-        RTSPBufferedWriter.write(describe() );
-
-      } else {
-        RTSPBufferedWriter.write("Session: " + RTSP_ID + CRLF);
+      switch (method) {
+        case OPTIONS:
+          RTSPBufferedWriter.write(options() );
+          break;
+        case DESCRIBE:
+          RTSPBufferedWriter.write(describe() );
+          break;
+        case SETUP:
+          RTSPBufferedWriter.write(sdpTransportLine + ";server_port=");
+          RTSPBufferedWriter.write(RTPsocket.getLocalPort() + "-");
+          RTSPBufferedWriter.write((RTPsocket.getLocalPort()+1) + "" + CRLF);
+          // RTSPBufferedWriter.write(";ssrc=0;mode=play" + CRLF);
+        default:
+          RTSPBufferedWriter.write("Session: " + RTSP_ID + ";timeout=30000" + CRLF);
+          break;
       }
 
       // Send end of response
@@ -469,6 +487,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
   private String describe() {
     StringWriter rtspHeader = new StringWriter();
     StringWriter rtspBody = new StringWriter();
+    VideoMetadata meta = Server.getVideoMetadata(VideoFileName);
 
     // Write the body first so we can get the size later
     rtspBody.write("v=0" + CRLF);
@@ -482,5 +501,38 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     rtspHeader.write(CRLF);
 
     return rtspHeader.toString() + rtspBody.toString();
+  }
+
+  /** Get the metadata from a video file.
+   *
+   *  If no metadata is available, all fields are zero-initialized with
+   *  exception of the framerate. Because the framerate is strongly required,
+   *  it is set to a default value.
+   *
+   *  @param filename Name of the video file
+   *  @return metadata structure containing the extracted information
+   */
+  private static VideoMetadata getVideoMetadata(String filename) {
+    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+    VideoMetadata meta = null;
+
+    String splittedFilename[] = filename.split("\\.");
+    switch (splittedFilename[splittedFilename.length-1]) {
+      case "avi":
+        meta = AviMetadataParser.parse(filename);
+        break;
+      case "mov":
+        meta = QuickTimeMetadataParser.parse(filename);
+        break;
+      default:
+        logger.log(Level.WARNING, "File extension not recognized: " + filename);
+      case "mjpg":
+      case "mjpeg":
+        meta = new VideoMetadata(1000 / DEFAULT_FRAME_PERIOD);
+        break;
+    }
+
+    assert meta != null : "VideoMetadata of file " + filename + " was not initialized correctly";
+    return meta;
   }
 }

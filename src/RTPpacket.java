@@ -49,7 +49,7 @@ public class RTPpacket {
     Padding = 0;
     Extension = 0;
     CC = 0;
-    Marker = 0;
+    Marker = 1;
     Ssrc = 0;
 
     // fill changing header fields:

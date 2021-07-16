@@ -19,11 +19,9 @@ public class FecHandler {
   FECpacket fec;
 
   // Receiver
-  HashMap<Integer, RTPpacket> rtpStack = new HashMap<>(); // list of media packets
   HashMap<Integer, FECpacket> fecStack = new HashMap<>(); // list of fec packets
   HashMap<Integer, Integer> fecNr = new HashMap<>(); // Snr of corresponding fec packet
   HashMap<Integer, List<Integer>> fecList = new HashMap<>(); // list of involved media packets
-  HashMap<Integer, List<Integer>> tsList = new HashMap<>(); // media packets with same ts
 
   int playCounter = 0; // SNr of RTP-packet to play next, initialized with first received packet
 
@@ -124,39 +122,11 @@ public class FecHandler {
   // *************** Receiver PUT *****************************************************************
 
   /**
-   * Handles and store a received media packet
-   *
-   * @param rtp the received RTP
-   */
-  public void rcvRtpPacket(RTPpacket rtp) {
-    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-    int seqNr = rtp.getsequencenumber();
-    // if first packet set playcounter below seqNr
-    if (rtpStack.size() == 0) playCounter = seqNr - 1;
-    // separate Media an FEC
-    if (rtp.getpayloadtype() == MJPEG) {
-      nrReceived++; // count only media
-      rtpStack.put(seqNr, rtp);
-      lastReceivedSeqNr = seqNr;
-      // create list of RTPs with same time stamp
-      int ts = rtp.gettimestamp();
-      List<Integer> list = tsList.get(ts);
-      if (list == null) list = new ArrayList<>();
-      list.add(seqNr);
-      tsList.put( ts, list );
-      logger.log(Level.FINER, "FEC: set media nr: " + seqNr);
-      logger.log(Level.FINER, "FEC: set ts-list: " + (0xFFFFFFFFL & ts) + " " + list.toString());
-    } else {
-      rcvFecPacket(rtp);
-    }
-  }
-
-  /**
    * Handles and store a recieved FEC packet
    *
    * @param rtp the received FEC-RTP
    */
-  private void rcvFecPacket(RTPpacket rtp) {
+  public void rcvFecPacket(RTPpacket rtp) {
     Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
     // build fec from rtp
     fec = new FECpacket(rtp.getpacket(), rtp.getpacket().length);
@@ -180,105 +150,12 @@ public class FecHandler {
   // *************** Receiver GET *****************************************************************
 
   /**
-   * Delivers next Frame, depreciated, see getNextRtpList
-   *
-   * @return JPEG
-   */
-  public byte[] getNextFrame() {
-    playCounter++;
-    if (playCounter > lastReceivedSeqNr) {
-      return null; // Jitter buffer is empty -> finish
-    }
-    RTPpacket rtp = getNextRtp();
-
-    clearStack(playCounter); // reduce the stack
-
-    if (rtp == null) {
-      return lastPayload; // error concealment
-    } else {
-      lastPayload = rtp.getpayload();
-      return rtp.getpayload();
-    }
-  }
-
-  /**
-   * Delivers next RTP packet,
-   *
-   * @return RTPpacket
-   */
-  private RTPpacket getNextRtp() {
-    return getRtp(playCounter);
-  }
-
-  /**
-   * Delivers a RTP packet
-   *
-   * @return RTPpacket
-   */
-  private RTPpacket getRtp(int snr) {
-    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-    snr = snr % 0x10000; // account overflow of SNr (16 Bit)
-    RTPpacket rtp = rtpStack.get(snr);
-    logger.log(Level.FINE, "FEC: get RTP nr: " + snr);
-
-    // check if correction is possible
-    if (rtp == null) {
-      logger.log(Level.WARNING, "FEC: Media lost: " + snr);
-      nrLost++;
-      if (checkCorrection(snr) && useFec) {
-        nrCorrected++;
-        logger.log(Level.INFO, "---> FEC: correctable: " + snr);
-        return correctRtp(snr);
-      } else {
-        nrNotCorrected++;
-        logger.log(Level.INFO, "---> FEC: not correctable: " + snr);
-        return null;
-      }
-    }
-    return rtp;
-  }
-
-  /**
-   * Delivers a set of RTPs with the same Time stamp the set is in the correct order concerning the
-   * sequence number
-   *
-   * @return List
-   */
-  public ArrayList<RTPpacket> getNextRtpList() {
-    Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-    nrFramesRequested++;
-    playCounter++;
-    ArrayList<RTPpacket> list = new ArrayList<>();
-    RTPpacket rtp = getNextRtp();
-    // check for lost rtp
-    if (rtp == null) {
-      nrFramesLost++;
-      return null;
-    }
-    list.add(rtp);
-    int ts = rtp.gettimestamp();
-    List<Integer> rtpList = tsList.get(ts); // list of RTPs with same time stamp
-    if (rtpList == null) return list; // if list is empty
-
-    //TODO lost RTPs are not in the list but could perhaps be corrected -> check for snr
-    //add all RTPs but the first which is already included
-    for (int i = 1; i < rtpList.size(); i++) {
-      list.add( getRtp(rtpList.get(i) ));
-    }
-    playCounter = playCounter + rtpList.size()-1; // set to snr of last packet
-    //TODO if list is fragmented return null or implement JPEG error concealment
-
-    logger.log(Level.FINER, "-> Get list of " + list.size() + " RTPs with TS: " + (0xFFFFFFFFL & ts));
-    return list;
-  }
-
-  /**
    * Checks if the RTP packet is reparable
    *
    * @param nr Sequence Nr.
    * @return true if possible
    */
-  private boolean checkCorrection(int nr) {
+  public boolean checkCorrection(int nr, HashMap<Integer, RTPpacket> mediaPackets) {
     //TASK complete this method!
     return false;
   }
@@ -289,7 +166,7 @@ public class FecHandler {
    * @param nr Sequence Nr.
    * @return RTP packet
    */
-  private RTPpacket correctRtp(int nr) {
+  public RTPpacket correctRtp(int nr, HashMap<Integer, RTPpacket> mediaPackets) {
     //TASK complete this method!
     return fec.getLostRtp(nr);
   }

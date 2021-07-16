@@ -48,7 +48,7 @@ public class Client {
   // ----------------
   DatagramSocket RTPsocket; // socket to be used to send and receive UDP packets
   //DatagramSocket FECsocket; // socket to be used to send and receive UDP packets for FEC
-  FecHandler fec;
+  private RtpHandler rtpHandler = null;
   static int RTP_RCV_PORT = 25000; // port where the client will receive the RTP packets
   // static int FEC_RCV_PORT = 25002; // port where the client will receive the RTP packets
 
@@ -229,8 +229,7 @@ public class Client {
           // ....
           logger.log(Level.FINE, "Socket receive buffer: " + RTPsocket.getReceiveBufferSize());
 
-          // Init the FEC-handler
-          fec = new FecHandler( checkBoxFec.isSelected() );
+          rtpHandler = new RtpHandler(checkBoxFec.isSelected());
           // Init the play timer
           int timerDelay = FRAME_RATE; // use default delay
           if (framerate != 0) { // if information available, use that
@@ -394,24 +393,8 @@ public class Client {
       DatagramPacket rcvDp = new DatagramPacket(buf, buf.length); // RTP needs UDP socket
       try {
         RTPsocket.receive(rcvDp); // receive the DP from the socket:
-        RTPpacket rtp = new RTPpacket(rcvDp.getData(), rcvDp.getLength()); // for the rcvDp
 
-        // print important header fields of the RTP packet received:
-        logger.log(Level.FINER,
-            "---------------- Receiver -----------------------"
-                + nl
-                + "Got RTP packet with SeqNum # "
-                + rtp.getsequencenumber()
-                + " TimeStamp: "
-                + (0xFFFFFFFFL & rtp.gettimestamp()) // cast to long
-                + " ms, of type "
-                + rtp.getpayloadtype()
-                + " Size: " + rtp.getlength());
-
-        // TASK remove comment for debugging
-        // rtp.printheader(); // print rtp header bitstream for debugging
-        fec.rcvRtpPacket(rtp); // stores the received RTP packet in jitter buffer
-
+        rtpHandler.processRtpPacket(rcvDp.getData(), rcvDp.getLength());
       } catch (InterruptedIOException iioe) {
         // System.out.println("Nothing to read");
       } catch (IOException ioe) {
@@ -426,14 +409,15 @@ public class Client {
 
     public void actionPerformed(ActionEvent e) {
       Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+      ReceptionStatistic rs = rtpHandler.getReceptionStatistic();
       byte[] payload;
 
       // check buffer size and start if filled
-      int puffer = fec.getSeqNr() - fec.getPlayCounter();
+      int puffer = rs.latestSequenceNumber - rs.playbackIndex;
       progressBuffer.setValue(puffer);
-      progressPosition.setValue(fec.getPlayCounter());
+      progressPosition.setValue(rs.playbackIndex);
       if (iteration % 5 == 0) {
-        setStatistics();
+        setStatistics(rs);
         iteration = 0;
       }
       iteration++;
@@ -449,15 +433,10 @@ public class Client {
       }
 
       logger.log(Level.FINE, "----------------- Play timer --------------------");
-      // get a list of rtps from jitter buffer
-      List<RTPpacket> rtpList = fec.getNextRtpList();
-
-      // TODO decoding of incomplete list to show fragments of pictures instead of discarding
-      if (rtpList == null) return;
-
-      payload = JpegFrame.combineToOneImage(rtpList);
-      logger.log(Level.FINE, "Display TS: " + (0xFFFFFFFFL & rtpList.get(0).TimeStamp)
-          + " size: " + payload.length);
+      payload = rtpHandler.nextPlaybackImage();
+      if (payload == null) {
+          return;
+      }
 
       try {
         // get an Image object from the payload bitstream
@@ -474,7 +453,7 @@ public class Client {
     }
 
       //TASK complete the statistics
-    private void setStatistics() {
+    private void setStatistics(ReceptionStatistic rs) {
       DecimalFormat df = new DecimalFormat("###.###");
       pufferLabel.setText(
           "Puffer: "

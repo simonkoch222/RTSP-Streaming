@@ -25,8 +25,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
   int RTP_dest_port = 0; // destination port for RTP packets  (given by the RTSP Client)
   int FEC_dest_port = 0; // destination port for RTP-FEC packets  (RTP or RTP+2)
   final static int startGroupSize = 2;
-  FecHandler fec;
-  //FecHandler fec = new FecHandler(startGroupSize);
+  RtpHandler rtpHandler = null;
   // Channel errors
   private double lossRate = 0.0;
   Random random = new Random(123456); // fixed seed for debugging
@@ -135,7 +134,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     if (!source.getValueIsAdjusting()) {
       if (source.getName().equals("k")) {
         int k = source.getValue();
-        fec.setFecGroupSize(k);
+        rtpHandler.setFecGroupSize(k);
         logger.log(Level.INFO, "New Group size: " + k);
       } else {
         lossRate = source.getValue();
@@ -210,7 +209,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
 
           // init RTP socket and FEC
           // theServer.RTPsocket = new DatagramSocket();
-          theServer.fec = new FecHandler(startGroupSize);
+          theServer.rtpHandler = new RtpHandler(startGroupSize);
 
           // Send response
           theServer.send_RTSP_response(SETUP);
@@ -291,33 +290,18 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
       if (frame != null) {
         logger.log(Level.FINE, "Frame size: " + frame.length);
 
-        // Build RTP-JPEG RFC 2435
-        JpegFrame jpegFrame = JpegFrame.getFromJpegBytes(frame);
-        frame = jpegFrame.getAsRfc2435Bytes();
-
-        // Builds an RTPpacket object containing the frame
-        // time has to be in scale with 90000 Hz (RFC 2435, 3.)
-        RTPpacket rtp_packet =
-            new RTPpacket(MJPEG_TYPE, imagenb, imagenb * (90000 / videoMeta.getFramerate()), frame, frame.length);
-
-        // retrieve the packet bitstream as array of bytes
-        packet_bits = rtp_packet.getpacket();
-        rtp_packet.printheader(); // Show header of bitstream if necessary
-        rtp_packet.printpayload(8);
+        packet_bits = rtpHandler.jpegToRtpPacket(frame, videoMeta.getFramerate());
 
         // send the packet as a DatagramPacket over the UDP socket
         senddp = new DatagramPacket(packet_bits, packet_bits.length, ClientIPAddr, RTP_dest_port);
 
         sendPacketWithError(senddp, false); // Send with packet loss
 
-        // FEC handling
-        fec.setRtp(rtp_packet);
-        if (fec.isReady()) {
+        if (rtpHandler.isFecPacketAvailable()) {
           logger.log(Level.FINE, "FEC-Encoder ready...");
-          packet_bits = fec.getPacket();  // print Header
-          // fec.printHeaders();
+          byte[] fecPacket = rtpHandler.createFecPacket();
           // send to the FEC dest_port
-          senddp = new DatagramPacket(packet_bits, packet_bits.length, ClientIPAddr, FEC_dest_port);
+          senddp = new DatagramPacket(fecPacket, fecPacket.length, ClientIPAddr, FEC_dest_port);
           sendPacketWithError(senddp, true);
         }
 

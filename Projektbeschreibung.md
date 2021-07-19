@@ -7,19 +7,26 @@ Ihre Aufgabe besteht im Wesentlichen aus der Ergänzung der Quellcodes in den Pu
 * FEC in Client, Paketkorrektur implementierne
 
 ## 1. Java-Klassen
-Das Projekt besteht aus folgenden Java-Klassen:
+Das Projekt besteht aus mehreren Java-Klassen, die je nach Funktionsumfang für Client, Server oder auch beide Anwendungen eingesetzt werden.
 
-[Client](src/Client.java): Funktionalität des Clients mit Benutzerschnittstelle zum Senden der RTSP-Kommandos und Anzeige des Videos  
-[Server](src/Server.java): Funktionalität des Servers zur Antwort auf die RTSP-Clientanfragen und Streaming des Videos  
-[RTPpacket](src/RTPpacket.java): Funktionalität zur Unterstützung von RTP-Paketen  
-[FECpacket](src/FECpacket.java): Erweiterung der RTP-Klasse mit FEC-Funktionalität  
-[FecHandler](src/FecHandler.java): Unterstützung der Fehlerkorrektur mittels FEC  
-[VideoReader](src/VideoReader.java): Einlesen einer MJPEG-Datei auf der Serverseite  
-[JpegFrame](src/JpegFrame): Codierung/Decodierung von JPEG-Bildern gemäß RFC-2435  
-[AviMetadataParser](src/AviMetadataParser.java): Extrahiert Metadaten aus AVI-Dateien  
-[CustomLoggingHandler](src/CustomLoggingHandler.java): Anpassung der Logger-Ausgaben für minimalen Overhead  
-[QuickTimeMetadataParser](src/QuickTimeMetadataParser.java): Extrahiert Metadaten aus Quicktime-Movie-Dateien  
-[VideoMetadata](src/VideoMetadata.java): Video-Metadaten wie Framerate und Abspieldauer
+### Server-seitige Klassen
+* [AviMetadataParser](AviMetadataParser.java): Extrahiert Metadaten aus AVI-Dateien
+* [QuickTimeMetadataParser](QuickTimeMetadataParser.java): Extrahiert Metadaten aus Quicktime-Movie-Dateien
+* [Server](src/Server.java): Funktionalität des Servers zur Antwort auf die RTSP-Clientanfragen und Streaming des Videos
+* [VideoReader](src/VideoReader.java): Einlesen einer MJPEG-Datei auf der Serverseite
+
+### Client-seitige Klassen
+* [Client](src/Client.java): Funktionalität des Clients mit Benutzerschnittstelle zum Senden der RTSP-Kommandos und Anzeige des Videos
+* [ReceptionStatistic](src/ReceptionStatistic.java): Bereitstellung von Empfangsstatistiken
+
+### Klassen für Server und Client
+* [CustomLoggingHandler](CustomLoggingHandler.java): Anpassung der Logger-Ausgaben für minimalen Overhead
+* [FecHandler](src/FecHandler.java): Unterstützung der Fehlerkorrektur mittels FEC
+* [FECpacket](src/FECpacket.java): Erweiterung der RTP-Klasse mit FEC-Funktionalität
+* [JpegFrame](src/JpegFrame): Codierung/Decodierung von JPEG-Bildern gemäß RFC-2435
+* [RTPpacket](src/RTPpacket.java): Funktionalität zur Unterstützung von RTP-Paketen
+* [VideoMetadata](VideoMetadata.java): Video-Metadaten wie Framerate und Abspieldauer
+* [RtpHandler](src/RtpHandler.java): Verarbeitung von RTP-Paketen
 
 ## 2. Programmstart
 Der Start des Servers erfolgt mittels `java Server RTSP-Port`. Der Standard-RTSP-Port ist 554, da Sie aber im Praktikum einen Port > 1024 nutzen müssen, bietet sich der alternative Port 8554 an. Der Start des Clients erfolgt mittels `java Client server_name server_port video_file`. Am Client können RTSP-Kommandos angefordert werden. 

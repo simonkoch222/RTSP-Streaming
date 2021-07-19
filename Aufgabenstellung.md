@@ -54,28 +54,34 @@ Alternativ können Sie die Klasse FecHandler auch komplett neu entwerfen und nur
 #### Architektur der Paketverarbeitung
 
 ##### Server
-* der Server nimmt die gesamte Verarbeitung im vorhandenen Timer-Handler vor
-* Nutzdaten speichern: `FecHandler.setRtp()`
+* der Server steuert die Verarbeitung im vorhandenen Timer-Handler
+* Nutzdaten erstellen und speichern: `RtpHandler.jpegToRtpPacket()`
 * Nutzdaten senden
-* Prüfung auf Erreichen der Gruppengröße: `FecHandler.isReady()`
-* nach Ablauf des Gruppenzählers berechnetes FEC-Paket entgegennehmen und senden: `FecHandler.getPacket()`
+* Prüfung auf Erreichen der Gruppengröße: `RtpHandler.isFecPacketAvailable()`
+* nach Ablauf des Gruppenzählers berechnetes FEC-Paket entgegennehmen und senden: `RtpHandler.createFecPacket()`
 * Kanalemulator jeweils für Medien- und FEC-Pakete aufrufen: `sendPacketWithError()`
 
 ##### Client
 * Der Client nutzt getrennte Timer-Handler für den Empfang der Pakete und für das periodische Anzeigen der Bilder (keine Threads notwendig).
 * Pakete empfangen per Timer
-* Pakete im Jitterpuffer speichern:  `FecHandler.rcvRtpPacket()`
+* Pakete im Jitterpuffer speichern: `RtpHandler.processRtpPacket()`
 * Statistiken aktualisieren
-* zur richtigen Zeit (Timeraufruf) das nächste Bild anzeigen: `FecHandler.getNextRtpList()`  Timer, welcher mit der fest eingestellten Abspielgeschwindigkeit läuft (25 Hz). 
+* zur richtigen Zeit (Timeraufruf) das nächste Bild anzeigen: `RtpHandler.nextPlaybackImage()`
+    * Timer läuft standardmäßig mit 25Hz oder Abspielgeschwindigkeit des Videos, wenn diese per SDP übermittelt
 * Verzögerung des Starts des Abspielens (ca. 2s), um den Jitterpuffer zu füllen
 
+##### RtpHandler
+* Server
+    * Registrierung eines RTP-Paketes im FecHandler bei dessen Erstellung
+    * Abruf fertiggestellter FEC-Pakete über den FeCHandler
+* Client
+    * Speicherung ankommender RTP-Pakete getrennt nach PayloadType (JPEG-Pakete im RtpHandler, FEC-Pakete im FecHandler)
+    * Bei Anfrage des nächsten Bildes Generierung einer Liste aller RTP-Pakete für dieses Bild (gleicher Timestamp)
+    * Überprüfung der Korrektur für fehlende RTP-Pakete per `FecHandler.checkCorrection()` und ggf. Korrektur über `FecHandler.correctRTP()`
+
 ##### FecHandler
-* Server: Hinzufügen eines RTP-Paketes zum FEC-Paket
-* Speicherung der ankommenden Pakete in einer HashMap getrennt nach PayloadType, Zugriff über Sequenznummer
 * Generierung einer Liste aller betroffenen RTP-Pakete für jedes FEC-Paket
 * Speicherung der Sequenznummer des FEC-Packets und der Liste aller betroffenen RTP-Pakete für jedes RTP-Paket in zwei HashMaps (fecNr, fecList)
-* Rückgabe einer Liste aller RTP-Pakete mit gleichem Timestamp
-* ist ein RTP-Paket nicht vorhanden, dann Prüfung auf Korrigierbarkeit `checkCorrection()` und u.U. Korrektur `correctRTP()`
 * periodisches Löschen alter nicht mehr benötigter Einträge im Jitterpuffer
 
 ##### FECpacket

@@ -496,11 +496,25 @@ public class SrtpHandler {
     }
 
     public static void main(String[] args) {
+        byte[] masterKey = new byte[]{
+            (byte)0xE1, (byte)0xF9, (byte)0x7A, (byte)0x0D, (byte)0x3E, (byte)0x01, (byte)0x8B, (byte)0xE0,
+            (byte)0xD6, (byte)0x4F, (byte)0xA3, (byte)0x2C, (byte)0x06, (byte)0xDE, (byte)0x41, (byte)0x39};
+        byte[] masterSalt = new byte[]{
+            (byte)0x0E, (byte)0xC6, (byte)0x75, (byte)0xAD, (byte)0x49, (byte)0x8A, (byte)0xFE,
+            (byte)0xEB, (byte)0xB6,	(byte)0x96, (byte)0x0B, (byte)0x3A, (byte)0xAB, (byte)0xE6};
+
         try {
             SrtpHandler srtp = new SrtpHandler(SrtpHandler.EncryptionAlgorithm.AES_CTR,
                     SrtpHandler.MacAlgorithm.NONE, null, null, 0);
             boolean passedKeyDerivation = srtp.testKeyDerivation();
             System.out.println("Test (Key Derivation): " + (passedKeyDerivation ? "" : "not ") + "passed");
+
+            SrtpHandler srtp2 = new SrtpHandler(SrtpHandler.EncryptionAlgorithm.AES_CTR,
+                    SrtpHandler.MacAlgorithm.NONE, masterKey, masterSalt, 0);
+            SrtpHandler srtp3 = new SrtpHandler(SrtpHandler.EncryptionAlgorithm.AES_CTR,
+                    SrtpHandler.MacAlgorithm.NONE, masterKey, masterSalt, 0);
+            boolean passedPacketProcessing = testPacketProcessing(srtp2, srtp3);
+            System.out.println("Test (Packet processing): " + (passedPacketProcessing ? "" : "not ") + "passed");
         } catch (InvalidKeyException ikex) {
             System.out.println(ikex);
         } catch (InvalidAlgorithmParameterException iapex) {
@@ -517,6 +531,22 @@ public class SrtpHandler {
             }
         }
         return b;
+    }
+
+    public static boolean testPacketProcessing(SrtpHandler sender, SrtpHandler receiver) {
+        byte[] data = new byte[1024];
+        RTPpacket packet = new RTPpacket(26, 1234, 9000, data, data.length);
+        byte[] srtp = sender.transformToSrtp(packet);
+        RTPpacket received = receiver.retrieveFromSrtp(srtp);
+        byte[] receivedPayload = received.getpayload();
+
+        boolean passed = true;
+        passed &= (received.getpayloadtype() == packet.getpayloadtype());
+        passed &= (received.getsequencenumber() == packet.getsequencenumber());
+        passed &= (received.gettimestamp() == packet.gettimestamp());
+        passed &= (Arrays.equals(data, receivedPayload));
+
+        return passed;
     }
 }
 

@@ -223,6 +223,50 @@ public class SrtpHandler {
         return key;
     }
 
+    private byte[] aesCrypt(boolean encryption, long index, byte[] payload) {
+        byte[] indexData = new byte[n_b];
+        System.arraycopy(SrtpHandler.longToByteArray(index), 0, indexData, n_b - 10, 8);
+        byte[] ivData = new byte[n_b];
+        byte[] ssrcData = new byte[n_b];
+        System.arraycopy(ssrc, 0, ssrcData, n_b - 4 - 8, 4);
+
+        for (int i = 0; i < ivData.length - 2; i++) { // last 2 bytes left zero for counter
+            ivData[i] = (byte)(k_s[i] ^ ssrcData[i] ^ indexData[i]);
+        }
+
+        // todo: RFC 3711, p. 22: ensure that each IV value is a nonce
+        // -> ROC || SEQ and SSRC must be destinct form any key
+
+        byte[] ciphertext = null;
+        try {
+            Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+            Key key = new SecretKeySpec(k_e, "AES");
+            IvParameterSpec iv = new IvParameterSpec(ivData);
+
+            if (encryption) {
+                cipher.init(Cipher.ENCRYPT_MODE, key, iv);
+            } else {
+                cipher.init(Cipher.DECRYPT_MODE, key, iv);
+            }
+
+            ciphertext = cipher.doFinal(payload);
+        } catch (NoSuchAlgorithmException nsaex) {
+            System.out.println(nsaex);
+        } catch (NoSuchPaddingException nspex) {
+            System.out.println(nspex);
+        } catch (InvalidAlgorithmParameterException iapex) {
+            System.out.println(iapex);
+        } catch (InvalidKeyException ikex) {
+            System.out.println(ikex);
+        } catch (IllegalBlockSizeException ibsex) {
+            System.out.println(ibsex);
+        } catch (BadPaddingException bpex) {
+            System.out.println(bpex);
+        }
+
+        return ciphertext;
+    }
+
     private static byte[] intToByteArray(int val) {
         byte[] data = new byte[4];
         for (int i = 0; i < data.length; i++) {

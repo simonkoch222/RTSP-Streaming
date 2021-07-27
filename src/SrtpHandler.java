@@ -138,6 +138,118 @@ public class SrtpHandler {
         return initialized;
     }
 
+    /**
+     * Transform a SRTP packet to get a RTP packet.
+     *
+     * This method applies decryption and message authentication
+     * to the packet in the way that was configured previously.
+     *
+     * @param packet Received packet.
+     * @return RTP packet.
+     */
+    public RTPpacket retrieveFromSrtp(byte[] packet) {
+        if (!isInitialized()) {
+            return null;
+        }
+
+        RTPpacket rtp = new RTPpacket(packet, packet.length);
+        int seq = rtp.getsequencenumber();
+        if (s_l == -1) {
+            s_l = (short)seq;
+        }
+
+        long index = indexFromSeq(seq);
+
+        if (key_derivation_rate != 0 && index % key_derivation_rate == 0) {
+            k_e = computeSessionKey(index, Label.ENCRYPTION, n_e);
+            k_s = computeSessionKey(index, Label.SALTING, n_s);
+        }
+
+        /* length of MKI and authentication tag, which have to be
+         * removed after packet processing
+         */
+        int suffixLength = 0;
+
+        // perform MAC authentication here
+        switch (macId) {
+        case NONE:
+            break;
+        // if MAC present, increase suffixLength by 4 (authentication tag)
+        }
+
+        // remove MKI and authentication tag from the packet
+        if (masterKeyIndicator) {
+            suffixLength += 4;
+        }
+        byte[] ciphertext = Arrays.copyOf(rtp.payload, rtp.payload.length - suffixLength);
+
+        rtp.payload = decryptPayload(index, ciphertext);
+
+        // update ROC and s_l
+        long v = index - seq;
+        if (v == roc-1) {
+            // nothing to do
+        } else if (v == roc && seq > s_l) {
+            s_l = (short)seq;
+        } else if (v == roc+1) {
+            s_l = (short)seq;
+            roc = v;
+        }
+
+        return rtp;
+    }
+
+    /**
+     * Transform a RTP packet to get a SRTP packet.
+     *
+     * This method applies encryption and message authentication
+     * to the packet in the way that was configured previously.
+     *
+     * @param packet The packet which will be transformed.
+     * @return The SRTP packet as byte array.
+     */
+    public byte[] transformToSrtp(RTPpacket packet) {
+        if (!isInitialized()) {
+            return null;
+        }
+
+        int seq = packet.getsequencenumber();
+        long index = (1 << 16) * roc + seq;
+
+        if (key_derivation_rate != 0 && index % key_derivation_rate == 0) {
+            k_e = computeSessionKey(index, Label.ENCRYPTION, n_e);
+            k_s = computeSessionKey(index, Label.SALTING, n_s);
+        }
+
+        byte[] encryptedPortion = encryptPayload(index, packet.getpayload());
+        masterKeyPacketCounter++;
+
+        if (masterKeyIndicator) {
+            byte[] tmp = new byte[encryptedPortion.length + 4];
+            System.arraycopy(encryptedPortion, 0, tmp, 0, encryptedPortion.length);
+            byte[] mkiData = SrtpHandler.intToByteArray(masterKeyIdentifier);
+            System.arraycopy(mkiData, 0, tmp, encryptedPortion.length, mkiData.length);
+            encryptedPortion = tmp;
+        }
+
+        // perform MAC authentication here
+        switch (macId) {
+        case NONE:
+            break;
+        }
+
+        if (seq > (1 << 16)) {
+            roc++;
+            roc %= (1 << 32);
+        }
+
+        byte[] srtpPacket = new byte[packet.header.length + encryptedPortion.length];
+        System.arraycopy(packet.header, 0, srtpPacket, 0, packet.header.length);
+        System.arraycopy(encryptedPortion, 0, srtpPacket, packet.header.length, encryptedPortion.length);
+
+        return srtpPacket;
+    }
+
     private byte[] aesKeyDerivation(int keyLength, byte[] x) {
         assert x.length == 14 : "AES-Key-Derivation: x has not 112 Bit.";
 
@@ -223,6 +335,17 @@ public class SrtpHandler {
         return key;
     }
 
+    private byte[] decryptPayload(long index, byte[] payload) {
+        switch (cipherId) {
+        case AES_CTR:
+            return aesCrypt(false, index, payload);
+        case NONE:
+            return payload;
+        default:
+            return null;
+        }
+    }
+
     private byte[] aesCrypt(boolean encryption, long index, byte[] payload) {
         byte[] indexData = new byte[n_b];
         System.arraycopy(SrtpHandler.longToByteArray(index), 0, indexData, n_b - 10, 8);
@@ -265,6 +388,44 @@ public class SrtpHandler {
         }
 
         return ciphertext;
+    }
+
+    private byte[] encryptPayload(long index, byte[] payload) {
+        switch (cipherId) {
+        case AES_CTR:
+            return aesCrypt(true, index, payload);
+        case NONE:
+            return payload;
+        default:
+            return null;
+        }
+    }
+
+    /**
+     * Determine the packet index from the sequence number.
+     *
+     * Get the packet index with respect for out-of-order RTP
+     * packets. The algorithm is taken from RFC 3711, Appendix A.
+     *
+     * @param seq Sequence Number of the RTP packet
+     * @return calculated index
+     */
+    private long indexFromSeq(int seq) {
+        long v = 0;
+        if (s_l < 32768) {
+            if (seq - s_l > 32768) {
+                v = roc-1;
+            } else {
+                v = roc;
+            }
+        } else {
+            if (s_l - 32768 > seq) {
+                v = roc+1;
+            } else {
+                v = roc;
+            }
+        }
+        return seq + v * 65536;
     }
 
     private static byte[] intToByteArray(int val) {

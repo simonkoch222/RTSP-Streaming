@@ -81,6 +81,10 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     super("Server"); // init Frame
     Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
+    // init RTP socket and FEC
+    // theServer.RTPsocket = new DatagramSocket();
+    rtpHandler = new RtpHandler(startGroupSize);
+
     // Handler to close the main window
     addWindowListener(
         new WindowAdapter() {
@@ -107,6 +111,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     dropRate.setPaintTicks(true);
     dropRate.setPaintLabels(true);
     dropRate.setName("p");
+
     JSlider groupSize = new JSlider(JSlider.HORIZONTAL, 2, 48, startGroupSize);
     groupSize.addChangeListener(this::stateChanged);
     groupSize.setMajorTickSpacing(4);
@@ -181,6 +186,17 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
       default:
         break;
       }
+
+      boolean encryptionSet = rtpHandler.setEncryption(mode);
+      if (!encryptionSet) {
+        Enumeration<AbstractButton> buttons = encryptionButtons.getElements();
+        while (buttons.hasMoreElements()) {
+          AbstractButton ab = buttons.nextElement();
+          if (ab.getText().equals("keine")) {
+            ab.setSelected(true);
+          }
+        }
+      }
     }
   }
 
@@ -246,10 +262,6 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
           theServer.timer = new Timer(1000 / theServer.videoMeta.getFramerate(), theServer);
           theServer.timer.setInitialDelay(0);
           theServer.timer.setCoalesce(false); // Coalesce can lead to buffer underflow in client
-
-          // init RTP socket and FEC
-          // theServer.RTPsocket = new DatagramSocket();
-          theServer.rtpHandler = new RtpHandler(startGroupSize);
 
           // Send response
           theServer.send_RTSP_response(SETUP);

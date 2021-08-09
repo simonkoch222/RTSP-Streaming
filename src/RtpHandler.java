@@ -1,3 +1,5 @@
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,8 +21,16 @@ public class RtpHandler {
 
     public static final int RTP_PAYLOAD_FEC = 127; // assumed as in RFC 5109, 10.1
     public static final int RTP_PAYLOAD_JPEG = 26;
+    private static byte[] defaultKey = new byte[]{
+        (byte)0xE1, (byte)0xF9, (byte)0x7A, (byte)0x0D, (byte)0x3E, (byte)0x01, (byte)0x8B, (byte)0xE0,
+        (byte)0xD6, (byte)0x4F, (byte)0xA3, (byte)0x2C, (byte)0x06, (byte)0xDE, (byte)0x41, (byte)0x39};
+    private static byte[] defaultSalt = new byte[]{
+        (byte)0x0E, (byte)0xC6, (byte)0x75, (byte)0xAD, (byte)0x49, (byte)0x8A, (byte)0xFE,
+        (byte)0xEB, (byte)0xB6, (byte)0x96, (byte)0x0B, (byte)0x3A, (byte)0xAB, (byte)0xE6};
 
+    private EncryptionMode encryptionMode;
     private FecHandler fecHandler = null;
+    private SrtpHandler srtpHandler = null;
 
     // server side
     private int currentSeqNb = 0; // sequence number of current frame
@@ -69,6 +79,19 @@ public class RtpHandler {
         }
 
         byte[] fecPacket = fecHandler.getPacket();
+        byte[] encryptedPacket = null;
+
+        switch (encryptionMode) {
+        case SRTP:
+            encryptedPacket = srtpHandler.transformToSrtp(new RTPpacket(fecPacket, fecPacket.length));
+            if (encryptedPacket != null) {
+                fecPacket = encryptedPacket;
+            }
+            break;
+        default:
+            break;
+        }
+
         return fecPacket;
     }
 
@@ -124,7 +147,19 @@ public class RtpHandler {
             fecHandler.setRtp(packet);
         }
 
-        return packet.getpacket();
+        byte[] packetData = null;
+        switch (encryptionMode) {
+        case SRTP:
+            packetData = srtpHandler.transformToSrtp(packet);
+            break;
+        default:
+            break;
+        }
+
+        if (packetData == null) {
+            packetData = packet.getpacket();
+        }
+        return packetData;
     }
 
     /**
@@ -162,6 +197,18 @@ public class RtpHandler {
         Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
         RTPpacket packet = new RTPpacket(packetData, packetLength);
         int seqNr = packet.getsequencenumber();
+
+        RTPpacket decryptedPacket = null;
+        switch (encryptionMode) {
+        case SRTP:
+            decryptedPacket = srtpHandler.retrieveFromSrtp(packet.getpacket());
+            if (decryptedPacket != null) {
+                packet = decryptedPacket;
+            }
+            break;
+        default:
+            break;
+        }
 
         // set the correct index for beginning the playback
         if (playbackIndex == -1) {
@@ -203,6 +250,55 @@ public class RtpHandler {
 
         // TASK remove comment for debugging
         // packet.printheader(); // print rtp header bitstream for debugging
+    }
+
+    /**
+     * Set packet encryption.
+     *
+     * @param mode The encryption mode.
+     * @return true if successful, false otherwise
+     */
+    public boolean setEncryption(EncryptionMode mode) {
+        if (currentSeqNb > 0 || (statistics != null && statistics.latestSequenceNumber > 0)) {
+            // Do not change encryption when already started.
+            return false;
+        }
+
+        encryptionMode = mode;
+        switch (encryptionMode) {
+        case SRTP:
+            /* Use pre-shared key and salt to avoid key management and
+             * session initialization with a protocol.
+             */
+            try {
+                srtpHandler = new SrtpHandler(
+                        SrtpHandler.EncryptionAlgorithm.AES_CTR,
+                        SrtpHandler.MacAlgorithm.NONE,
+                        defaultKey, defaultSalt, 0);
+            } catch (InvalidKeyException ikex) {
+                System.out.println(ikex);
+            } catch (InvalidAlgorithmParameterException iapex) {
+                System.out.println(iapex);
+            }
+            if (srtpHandler == null) {
+                return false;
+            }
+            break;
+        case NONE:
+        default:
+            break;
+        }
+
+        return true;
+    }
+
+    /**
+     * Set if FEC error correction should be used.
+     *
+     * @param enabled Use the FEC error correction or not.
+     */
+    public void setFecDecryptionEnabled(boolean enabled) {
+        fecDecodingEnabled = enabled;
     }
 
     /**

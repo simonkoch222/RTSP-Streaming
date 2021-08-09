@@ -90,6 +90,8 @@ public class Client {
   private double duration = 0.0; // in s
 
   public Client() {
+    rtpHandler = new RtpHandler(false);
+
     // build GUI
     // Frame
     f.addWindowListener(
@@ -234,7 +236,7 @@ public class Client {
           // ....
           logger.log(Level.FINE, "Socket receive buffer: " + RTPsocket.getReceiveBufferSize());
 
-          rtpHandler = new RtpHandler(checkBoxFec.isSelected());
+          rtpHandler.setFecDecryptionEnabled(checkBoxFec.isSelected());
           // Init the play timer
           int timerDelay = FRAME_RATE; // use default delay
           if (framerate != 0) { // if information available, use that
@@ -665,6 +667,17 @@ public class Client {
         break;
       default:
         break;
+      }
+
+      boolean encryptionSet = rtpHandler.setEncryption(mode);
+      if (!encryptionSet) {
+        Enumeration<AbstractButton> buttons = encryptionButtons.getElements();
+        while (buttons.hasMoreElements()) {
+          AbstractButton ab = buttons.nextElement();
+          if (ab.getText().equals("keine")) {
+            ab.setSelected(true);
+          }
+        }
       }
     }
   }

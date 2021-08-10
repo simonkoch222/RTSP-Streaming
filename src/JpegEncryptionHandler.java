@@ -1,3 +1,5 @@
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.security.Key;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -225,6 +227,52 @@ public class JpegEncryptionHandler {
         }
 
         return dqtFound;
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length < 1) {
+            System.out.println("To run the tests for this encryption, specify a JPEG file.");
+            return;
+        }
+
+        FileInputStream fis = new FileInputStream(args[0]);
+        byte[] plainImage = new byte[fis.available()];
+        fis.read(plainImage);
+
+        byte[] key = new byte[]{
+            (byte)0xE1, (byte)0xF9, (byte)0x7A, (byte)0x0D, (byte)0x3E, (byte)0x01, (byte)0x8B, (byte)0xE0,
+            (byte)0xD6, (byte)0x4F, (byte)0xA3, (byte)0x2C, (byte)0x06, (byte)0xDE, (byte)0x41, (byte)0x39};
+        byte[] salt = new byte[]{
+            (byte)0x0E, (byte)0xC6, (byte)0x75, (byte)0xAD, (byte)0x49, (byte)0x8A, (byte)0xFE,
+            (byte)0xEB, (byte)0xB6,	(byte)0x96, (byte)0x0B, (byte)0x3A, (byte)0xAB, (byte)0xE6};
+        JpegEncryptionHandler jeh = new JpegEncryptionHandler(key, salt);
+
+        byte[] cipherImage = jeh.encrypt(plainImage);
+        if (cipherImage != null) {
+            FileOutputStream cipherFos = new FileOutputStream("encrypted.jpeg");
+            cipherFos.write(cipherImage);
+        } else {
+            System.out.println("Error at encrypting the image.");
+        }
+
+        byte[] decryptedImage = jeh.decrypt(cipherImage);
+        if (decryptedImage != null) {
+            FileOutputStream decFos = new FileOutputStream("decrypted.jpeg");
+            decFos.write(decryptedImage);
+        } else {
+            System.out.println("Error at decrypting the image.");
+        }
+    }
+
+    public static String hexdump(byte[] data) {
+        String b = "";
+        for (int i = 0; i < data.length; i++) {
+            b += String.format("%2s", Integer.toHexString(data[i] & 0xFF)).replace(' ', '0');
+            if (data.length > 16 && (i + 1) % 16 == 0 && i != 0) {
+                b += "\n";
+            }
+        }
+        return b;
     }
 }
 

@@ -76,21 +76,23 @@ public class JpegEncryptionHandler {
      * @return the decrypted image, or null if decryption failed
      */
     public byte[] decrypt(byte[] image) {
+        int startPos = 0;
         position = 0;
         inImage = image;
         outImage = new byte[image.length];
 
-        if (!seekToDqt()) {
-            return null;
-        }
-        System.arraycopy(inImage, 0, outImage, 0, position);
+        while (seekToDqt()) {
+            System.arraycopy(inImage, startPos, outImage, startPos, position - startPos);
 
-        if (!cryptDqt(false)) {
-            return null;
+            if (!cryptDqt(false)) {
+                return null;
+            }
+
+            startPos = position;
         }
 
         // copy remaining data
-        copyData(inImage.length - position);
+        System.arraycopy(inImage, startPos, outImage, startPos, position - startPos);
 
         return outImage;
     }
@@ -102,21 +104,23 @@ public class JpegEncryptionHandler {
      * @return the encrypted image, or null if encryption failed
      */
     public byte[] encrypt(byte[] image) {
+        int startPos = 0;
         position = 0;
         inImage = image;
         outImage = new byte[image.length];
 
-        if (!seekToDqt()) {
-            return null;
-        }
-        System.arraycopy(inImage, 0, outImage, 0, position);
+        while (seekToDqt()) {
+            System.arraycopy(inImage, startPos, outImage, startPos, position - startPos);
 
-        if (!cryptDqt(true)) {
-            return null;
+            if (!cryptDqt(true)) {
+                return null;
+            }
+
+            startPos = position;
         }
 
         // copy remaining data
-        copyData(inImage.length - position);
+        System.arraycopy(inImage, startPos, outImage, startPos, position - startPos);
 
         return outImage;
     }
@@ -131,21 +135,23 @@ public class JpegEncryptionHandler {
      * @return the image with the replaced DQT tables, or null if it failed
      */
     public byte[] replaceAttackDecryption(byte[] image) {
+        int startPos = 0;
         position = 0;
         inImage = image;
         outImage = new byte[image.length];
 
-        if (!seekToDqt()) {
-            return null;
-        }
-        System.arraycopy(inImage, 0, outImage, 0, position);
+        while (seekToDqt()) {
+            System.arraycopy(inImage, startPos, outImage, startPos, position - startPos);
 
-        if (!replaceDqtTables()) {
-            return null;
+            if (!replaceDqtTables()) {
+                return null;
+            }
+
+            startPos = position;
         }
 
         // copy remaining data
-        copyData(inImage.length - position);
+        System.arraycopy(inImage, startPos, outImage, startPos, position - startPos);
 
         return outImage;
     }

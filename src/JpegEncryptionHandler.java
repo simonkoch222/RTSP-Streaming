@@ -1,3 +1,16 @@
+import java.security.Key;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+
+
 /**
  * Encrypting JPEG images after compression.
  *
@@ -107,7 +120,71 @@ public class JpegEncryptionHandler {
      * @return true if cryptographic operation was successful, false otherwise
      */
     private boolean cryptDqt(boolean encryption) {
-        return false;
+        copyData(2); // omit the marker
+        int length = Byte.toUnsignedInt(inImage[position]) << 8
+                | Byte.toUnsignedInt(inImage[position+1]);
+
+        length -= 2; // remove length parameter from data length
+        copyData(2); // length was extracted
+
+        int dqtCount = length / 65; // one table has 64 entries and 1 byte precision/identifier
+
+        boolean success = true;
+        for (int i = 0; i < dqtCount; i++) {
+            success |= cryptTable(encryption);
+        }
+
+        return success;
+    }
+
+    /**
+     * Encrypt or decrypt a single quantization table.
+     *
+     * @param encryption Has to be true, if the tables should be encrypted; false indicates decryption.
+     * @return true if cryptographic operation was successful, false otherwise
+     */
+    private boolean cryptTable(boolean encryption) {
+        copyData(1); // discard precision and identifier
+
+        // multiplication with 2^16 for counter
+        byte[] ivData = new byte[encryptionSalt.length + 2];
+        System.arraycopy(encryptionSalt, 0, ivData, 0, encryptionSalt.length);
+
+        byte[] ciphertext = null;
+        try {
+            Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+            Key key = new SecretKeySpec(encryptionKey, "AES");
+            IvParameterSpec iv = new IvParameterSpec(ivData);
+
+            if (encryption) {
+                cipher.init(Cipher.ENCRYPT_MODE, key, iv);
+            } else {
+                cipher.init(Cipher.DECRYPT_MODE, key, iv);
+            }
+
+            byte[] dqtData = Arrays.copyOfRange(inImage, position, position + 64);
+            ciphertext = cipher.doFinal(dqtData);
+        } catch (NoSuchAlgorithmException nsaex) {
+            System.out.println(nsaex);
+        } catch (NoSuchPaddingException nspex) {
+            System.out.println(nspex);
+        } catch (InvalidAlgorithmParameterException iapex) {
+            System.out.println(iapex);
+        } catch (InvalidKeyException ikex) {
+            System.out.println(ikex);
+        } catch (IllegalBlockSizeException ibsex) {
+            System.out.println(ibsex);
+        } catch (BadPaddingException bpex) {
+            System.out.println(bpex);
+        }
+
+        if (ciphertext != null) {
+            System.arraycopy(ciphertext, 0, outImage, position, ciphertext.length);
+            position += ciphertext.length;
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**

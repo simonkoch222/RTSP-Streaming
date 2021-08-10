@@ -17,7 +17,8 @@ public class RtpHandler {
     public enum EncryptionMode {
         NONE,
         SRTP,
-        JPEG
+        JPEG,
+        JPEG_ATTACK
     }
 
     public static final int RTP_PAYLOAD_FEC = 127; // assumed as in RFC 5109, 10.1
@@ -91,6 +92,7 @@ public class RtpHandler {
             }
             break;
         case JPEG:
+        case JPEG_ATTACK:
         default:
             break;
         }
@@ -139,6 +141,7 @@ public class RtpHandler {
         case JPEG:
             image = jpegEncryptionHandler.encrypt(jpegImage);
             break;
+        case JPEG_ATTACK:
         case SRTP:
         default:
             image = jpegImage;
@@ -168,6 +171,7 @@ public class RtpHandler {
             packetData = srtpHandler.transformToSrtp(packet);
             break;
         case JPEG:
+        case JPEG_ATTACK:
         default:
             break;
         }
@@ -209,6 +213,12 @@ public class RtpHandler {
                 image = decryptedImage;
             }
             break;
+        case JPEG_ATTACK:
+            decryptedImage = jpegEncryptionHandler.replaceAttackDecryption(image);
+            if (decryptedImage != null) {
+                image = decryptedImage;
+            }
+            break;
         case SRTP:
         default:
             break;
@@ -236,6 +246,7 @@ public class RtpHandler {
             }
             break;
         case JPEG:
+        case JPEG_ATTACK:
         default:
             break;
         }
@@ -315,6 +326,7 @@ public class RtpHandler {
             }
             break;
         case JPEG:
+        case JPEG_ATTACK:
             /* Use pre-shared key and salt to avoid key management and
              * session initialization with a protocol.
              */

@@ -25,6 +25,30 @@ public class JpegEncryptionHandler {
     private static final byte JPEG_EOI = (byte)0xD9;
     private static final byte JPEG_DQT = (byte)0xDB;
 
+    /* Recommended quantization tables from Annex K.1
+     * of the JPEG standard ISO 10918-1.
+     */
+    private static final byte[] LUM_DQT = new byte[]{
+        (byte)16, (byte)11, (byte)10, (byte)16, (byte)24, (byte)40, (byte)51, (byte)61,
+        (byte)12, (byte)12, (byte)14, (byte)19, (byte)26, (byte)58, (byte)60, (byte)55,
+        (byte)14, (byte)13, (byte)16, (byte)24, (byte)40, (byte)57, (byte)69, (byte)56,
+        (byte)14, (byte)17, (byte)22, (byte)29, (byte)51, (byte)87, (byte)80, (byte)62,
+        (byte)18, (byte)22, (byte)37, (byte)56, (byte)68, (byte)109, (byte)103, (byte)77,
+        (byte)24, (byte)35, (byte)55, (byte)64, (byte)81, (byte)104, (byte)113, (byte)92,
+        (byte)49, (byte)64, (byte)78, (byte)87, (byte)103, (byte)121, (byte)120, (byte)101,
+        (byte)72, (byte)92, (byte)95, (byte)98, (byte)112, (byte)100, (byte)103, (byte)99
+    };
+    private static final byte[] CHM_DQT = new byte[]{
+        (byte)17, (byte)18, (byte)24, (byte)47, (byte)99, (byte)99, (byte)99, (byte)99,
+        (byte)18, (byte)21, (byte)26, (byte)66, (byte)99, (byte)99, (byte)99, (byte)99,
+        (byte)24, (byte)26, (byte)56, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99,
+        (byte)47, (byte)66, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99,
+        (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99,
+        (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99,
+        (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99,
+        (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99, (byte)99
+    };
+
     private byte[] encryptionKey = null;
     private byte[] encryptionSalt = null;
     private byte[] inImage = null;
@@ -88,6 +112,35 @@ public class JpegEncryptionHandler {
         System.arraycopy(inImage, 0, outImage, 0, position);
 
         if (!cryptDqt(true)) {
+            return null;
+        }
+
+        // copy remaining data
+        copyData(inImage.length - position);
+
+        return outImage;
+    }
+
+    /**
+     * Try to decrypt an image with replacing the DQT tables.
+     *
+     * The replace attack tries to replace the encrypted
+     * DQT tables with these from annex K.1 of the JPEG standard.
+     *
+     * @param image the encrypted image
+     * @return the image with the replaced DQT tables, or null if it failed
+     */
+    public byte[] replaceAttackDecryption(byte[] image) {
+        position = 0;
+        inImage = image;
+        outImage = new byte[image.length];
+
+        if (!seekToDqt()) {
+            return null;
+        }
+        System.arraycopy(inImage, 0, outImage, 0, position);
+
+        if (!replaceDqtTables()) {
             return null;
         }
 
@@ -190,6 +243,39 @@ public class JpegEncryptionHandler {
     }
 
     /**
+     * Replace the DQT tables with the ones from the standard.
+     *
+     * @return true if successful, false otherwise
+     */
+    private boolean replaceDqtTables() {
+        copyData(2); // omit the marker
+        int length = Byte.toUnsignedInt(inImage[position]) << 8
+                | Byte.toUnsignedInt(inImage[position+1]);
+
+        length -= 2; // remove length parameter from data length
+        copyData(2); // length was extracted
+
+        int dqtCount = length / 65; // one table has 64 entries and 1 byte precision/identifier
+
+        boolean success = true;
+        for (int i = 0; i < dqtCount; i++) {
+            int id = inImage[position] & 0x0F;
+            copyData(1); // precision and identifier
+
+            byte[] table = null;
+            if (id == 0) {
+                table = LUM_DQT;
+            } else if (id == 1) {
+                table = CHM_DQT;
+            } // else is not supported
+            System.arraycopy(table, 0, outImage, position, table.length);
+            position += table.length;
+        }
+
+        return success;
+    }
+
+    /**
      * Seek to the next quantization table segment.
      *
      * @return true if skip successfull, false otherwise
@@ -261,6 +347,14 @@ public class JpegEncryptionHandler {
             decFos.write(decryptedImage);
         } else {
             System.out.println("Error at decrypting the image.");
+        }
+
+        byte[] attackedImage = jeh.replaceAttackDecryption(cipherImage);
+        if (attackedImage != null) {
+            FileOutputStream attFos = new FileOutputStream("replacementAttack.jpeg");
+            attFos.write(attackedImage);
+        } else {
+            System.out.println("Error at replacement attacking the image.");
         }
     }
 

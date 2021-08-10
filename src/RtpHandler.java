@@ -16,7 +16,8 @@ import java.util.logging.Logger;
 public class RtpHandler {
     public enum EncryptionMode {
         NONE,
-        SRTP
+        SRTP,
+        JPEG
     }
 
     public static final int RTP_PAYLOAD_FEC = 127; // assumed as in RFC 5109, 10.1

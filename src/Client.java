@@ -652,6 +652,11 @@ public class Client {
     encryptionButtons.add(e_srtp);
     panel.add(e_srtp);
 
+    JRadioButton e_jpeg = new JRadioButton("JPEG");
+    e_jpeg.addItemListener(this::radioButtonSelected);
+    encryptionButtons.add(e_jpeg);
+    panel.add(e_jpeg);
+
     return panel;
   }
 
@@ -664,6 +669,9 @@ public class Client {
       switch (label) {
       case "SRTP":
         mode = RtpHandler.EncryptionMode.SRTP;
+        break;
+      case "JPEG":
+        mode = RtpHandler.EncryptionMode.JPEG;
         break;
       default:
         break;

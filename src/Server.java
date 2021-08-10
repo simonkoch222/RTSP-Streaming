@@ -183,6 +183,9 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
       case "SRTP":
         mode = RtpHandler.EncryptionMode.SRTP;
         break;
+      case "JPEG":
+        mode = RtpHandler.EncryptionMode.JPEG;
+        break;
       default:
         break;
       }
@@ -570,6 +573,16 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     gbc.weightx = 1;
     gbc.fill = GridBagConstraints.HORIZONTAL;
     panel.add(e_srtp, gbc);
+
+    JRadioButton e_jpeg = new JRadioButton("JPEG");
+    e_jpeg.addItemListener(this::radioButtonSelected);
+    encryptionButtons.add(e_jpeg);
+    gbc = new GridBagConstraints();
+    gbc.gridx = 3;
+    gbc.gridy = 2;
+    gbc.weightx = 1;
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    panel.add(e_jpeg, gbc);
   }
 
   /** Get the metadata from a video file.

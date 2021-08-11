@@ -41,6 +41,7 @@ public class Client {
   JProgressBar progressBuffer = new JProgressBar(0, 100);
   JProgressBar progressPosition = new JProgressBar(0, videoLength);
   JCheckBox checkBoxFec = new JCheckBox("FEC");
+  ButtonGroup encryptionButtons = null;
 
   int iteration = 0;
 
@@ -89,6 +90,8 @@ public class Client {
   private double duration = 0.0; // in s
 
   public Client() {
+    rtpHandler = new RtpHandler(false);
+
     // build GUI
     // Frame
     f.addWindowListener(
@@ -127,20 +130,24 @@ public class Client {
     inputPanel.setLayout(new BorderLayout());
     inputPanel.add(textField, BorderLayout.SOUTH);
 
+    JPanel encryptionPanel = initEncryptionPanel();
+
     // frame layout
     mainPanel.setLayout(null);
     mainPanel.add(iconLabel);
     mainPanel.add(buttonPanel);
+    mainPanel.add(encryptionPanel);
     mainPanel.add(statsPanel);
     mainPanel.add(progressBuffer);
     mainPanel.add(progressPosition);
     mainPanel.add(inputPanel);
     iconLabel.setBounds(0, 0, 640, 480);
     buttonPanel.setBounds(0, 480, 640, 50);
-    statsPanel.setBounds(10, 550, 620, 150);
-    progressBuffer.setBounds(10, 700, 620, 20);
-    progressPosition.setBounds(10, 730, 620, 20);
-    inputPanel.setBounds(10, 750, 620, 50);
+    encryptionPanel.setBounds(10, 530, 640, 30);
+    statsPanel.setBounds(10, 560, 620, 150);
+    progressBuffer.setBounds(10, 710, 620, 20);
+    progressPosition.setBounds(10, 740, 620, 20);
+    inputPanel.setBounds(10, 760, 620, 50);
     // inputPanel.setSize(620,50);
 
     f.getContentPane().add(mainPanel, BorderLayout.CENTER);
@@ -229,7 +236,7 @@ public class Client {
           // ....
           logger.log(Level.FINE, "Socket receive buffer: " + RTPsocket.getReceiveBufferSize());
 
-          rtpHandler = new RtpHandler(checkBoxFec.isSelected());
+          rtpHandler.setFecDecryptionEnabled(checkBoxFec.isSelected());
           // Init the play timer
           int timerDelay = FRAME_RATE; // use default delay
           if (framerate != 0) { // if information available, use that
@@ -623,6 +630,55 @@ public class Client {
       ex.printStackTrace();
       logger.log(Level.SEVERE, "Exception caught: " + ex);
       System.exit(0);
+    }
+  }
+
+  private JPanel initEncryptionPanel() {
+    JPanel panel = new JPanel();
+    panel.setLayout(new GridLayout(1, 0));
+
+    JLabel encryptionLabel = new JLabel("Verschlüsselung:");
+    panel.add(encryptionLabel);
+
+    encryptionButtons = new ButtonGroup();
+    JRadioButton e_none = new JRadioButton("keine");
+    e_none.addItemListener(this::radioButtonSelected);
+    encryptionButtons.add(e_none);
+    e_none.setSelected(true);
+    panel.add(e_none);
+
+    JRadioButton e_srtp = new JRadioButton("SRTP");
+    e_srtp.addItemListener(this::radioButtonSelected);
+    encryptionButtons.add(e_srtp);
+    panel.add(e_srtp);
+
+    return panel;
+  }
+
+  private void radioButtonSelected(ItemEvent ev) {
+    JRadioButton rb = (JRadioButton)ev.getItem();
+    if (rb.isSelected()) {
+      String label = rb.getText();
+      RtpHandler.EncryptionMode mode = RtpHandler.EncryptionMode.NONE;
+
+      switch (label) {
+      case "SRTP":
+        mode = RtpHandler.EncryptionMode.SRTP;
+        break;
+      default:
+        break;
+      }
+
+      boolean encryptionSet = rtpHandler.setEncryption(mode);
+      if (!encryptionSet) {
+        Enumeration<AbstractButton> buttons = encryptionButtons.getElements();
+        while (buttons.hasMoreElements()) {
+          AbstractButton ab = buttons.nextElement();
+          if (ab.getText().equals("keine")) {
+            ab.setSelected(true);
+          }
+        }
+      }
     }
   }
 }

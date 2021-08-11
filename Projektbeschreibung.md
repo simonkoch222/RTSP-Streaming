@@ -27,6 +27,9 @@ Das Projekt besteht aus mehreren Java-Klassen, die je nach Funktionsumfang für 
 * [RTPpacket](src/RTPpacket.java): Funktionalität zur Unterstützung von RTP-Paketen
 * [VideoMetadata](VideoMetadata.java): Video-Metadaten wie Framerate und Abspieldauer
 * [RtpHandler](src/RtpHandler.java): Verarbeitung von RTP-Paketen
+* [SrtpHandler](src/SrtpHandler.java): Verschlüsselung von RTP-Paketen
+
+
 
 ## 2. Programmstart
 Der Start des Servers erfolgt mittels `java Server RTSP-Port`. Der Standard-RTSP-Port ist 554, da Sie aber im Praktikum einen Port > 1024 nutzen müssen, bietet sich der alternative Port 8554 an. Der Start des Clients erfolgt mittels `java Client server_name server_port video_file`. Am Client können RTSP-Kommandos angefordert werden. 

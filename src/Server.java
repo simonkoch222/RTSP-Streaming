@@ -35,6 +35,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
   // ----------------
   JLabel label;
   static JLabel stateLabel;
+  private ButtonGroup encryptionButtons = null;
 
   // Video variables:
   // ----------------
@@ -80,6 +81,10 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     super("Server"); // init Frame
     Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 
+    // init RTP socket and FEC
+    // theServer.RTPsocket = new DatagramSocket();
+    rtpHandler = new RtpHandler(startGroupSize);
+
     // Handler to close the main window
     addWindowListener(
         new WindowAdapter() {
@@ -97,7 +102,8 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     getContentPane().add(stateLabel, BorderLayout.SOUTH);
     // Error Slider
     JPanel mainPanel = new JPanel();
-    mainPanel.setLayout(new GridLayout(2,0));
+    mainPanel.setLayout(new GridBagLayout());
+    GridBagConstraints gbc = new GridBagConstraints();
     JSlider dropRate = new JSlider(JSlider.HORIZONTAL, 0, 100, 0);
     dropRate.addChangeListener(this);
     dropRate.setMajorTickSpacing(10);
@@ -105,6 +111,7 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     dropRate.setPaintTicks(true);
     dropRate.setPaintLabels(true);
     dropRate.setName("p");
+
     JSlider groupSize = new JSlider(JSlider.HORIZONTAL, 2, 48, startGroupSize);
     groupSize.addChangeListener(this::stateChanged);
     groupSize.setMajorTickSpacing(4);
@@ -112,8 +119,22 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     groupSize.setPaintLabels(true);
     groupSize.setPaintTicks(true);
     groupSize.setName("k");
-    mainPanel.add(groupSize);
-    mainPanel.add(dropRate);
+    gbc.gridx = 0;
+    gbc.gridy = 0;
+    gbc.gridwidth = 4;
+    gbc.weighty = 1;
+    gbc.fill = GridBagConstraints.BOTH;
+    mainPanel.add(groupSize, gbc);
+    gbc = new GridBagConstraints();
+    gbc.gridx = 0;
+    gbc.gridy = 1;
+    gbc.gridwidth = 4;
+    gbc.weighty = 1;
+    gbc.fill = GridBagConstraints.BOTH;
+    mainPanel.add(dropRate, gbc);
+
+    initGuiEncryption(mainPanel);
+
     getContentPane().add(mainPanel, BorderLayout.CENTER);
 
     try {
@@ -140,6 +161,41 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
         lossRate = source.getValue();
         lossRate = lossRate / 100;
         logger.log(Level.INFO, "New packet error rate: " + lossRate);
+      }
+    }
+  }
+
+  /**
+   * Handler for encryption RadioButtons.
+   *
+   * The ItemEvent is just fired if a Button is selected
+   * which previous was not.
+   *
+   * @param ev ItemEvent
+   */
+  public void radioButtonSelected(ItemEvent ev) {
+    JRadioButton rb = (JRadioButton)ev.getItem();
+    if (rb.isSelected()) {
+      String label = rb.getText();
+      RtpHandler.EncryptionMode mode = RtpHandler.EncryptionMode.NONE;
+
+      switch (label) {
+      case "SRTP":
+        mode = RtpHandler.EncryptionMode.SRTP;
+        break;
+      default:
+        break;
+      }
+
+      boolean encryptionSet = rtpHandler.setEncryption(mode);
+      if (!encryptionSet) {
+        Enumeration<AbstractButton> buttons = encryptionButtons.getElements();
+        while (buttons.hasMoreElements()) {
+          AbstractButton ab = buttons.nextElement();
+          if (ab.getText().equals("keine")) {
+            ab.setSelected(true);
+          }
+        }
       }
     }
   }
@@ -206,10 +262,6 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
           theServer.timer = new Timer(1000 / theServer.videoMeta.getFramerate(), theServer);
           theServer.timer.setInitialDelay(0);
           theServer.timer.setCoalesce(false); // Coalesce can lead to buffer underflow in client
-
-          // init RTP socket and FEC
-          // theServer.RTPsocket = new DatagramSocket();
-          theServer.rtpHandler = new RtpHandler(startGroupSize);
 
           // Send response
           theServer.send_RTSP_response(SETUP);
@@ -485,6 +537,39 @@ public class Server extends JFrame implements ActionListener, ChangeListener {
     rtspHeader.write(CRLF);
 
     return rtspHeader.toString() + rtspBody.toString();
+  }
+
+  private void initGuiEncryption(JPanel panel) {
+    GridBagConstraints gbc = new GridBagConstraints();
+    JLabel encryptionLabel = new JLabel("Verschlüsselung:");
+    gbc.gridx = 0;
+    gbc.gridy = 2;
+    gbc.weightx = 1;
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    gbc.insets = new Insets(0, 10, 0, 0);
+    panel.add(encryptionLabel, gbc);
+
+    encryptionButtons = new ButtonGroup();
+    JRadioButton e_none = new JRadioButton("keine");
+    e_none.addItemListener(this::radioButtonSelected);
+    encryptionButtons.add(e_none);
+    e_none.setSelected(true);
+    gbc = new GridBagConstraints();
+    gbc.gridx = 1;
+    gbc.gridy = 2;
+    gbc.weightx = 1;
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    panel.add(e_none, gbc);
+
+    JRadioButton e_srtp = new JRadioButton("SRTP");
+    e_srtp.addItemListener(this::radioButtonSelected);
+    encryptionButtons.add(e_srtp);
+    gbc = new GridBagConstraints();
+    gbc.gridx = 2;
+    gbc.gridy = 2;
+    gbc.weightx = 1;
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    panel.add(e_srtp, gbc);
   }
 
   /** Get the metadata from a video file.

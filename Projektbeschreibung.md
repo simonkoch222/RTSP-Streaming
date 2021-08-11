@@ -28,7 +28,7 @@ Das Projekt besteht aus mehreren Java-Klassen, die je nach Funktionsumfang für 
 * [VideoMetadata](VideoMetadata.java): Video-Metadaten wie Framerate und Abspieldauer
 * [RtpHandler](src/RtpHandler.java): Verarbeitung von RTP-Paketen
 * [SrtpHandler](src/SrtpHandler.java): Verschlüsselung von RTP-Paketen
-
+* [JpegEncryptionHandler](src/JpegEncryptionHandler.java): Verschlüsselung von JPEG-Bildern (Quantisierungstabellen)
 
 
 ## 2. Programmstart

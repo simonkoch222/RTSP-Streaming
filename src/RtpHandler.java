@@ -16,7 +16,9 @@ import java.util.logging.Logger;
 public class RtpHandler {
     public enum EncryptionMode {
         NONE,
-        SRTP
+        SRTP,
+        JPEG,
+        JPEG_ATTACK
     }
 
     public static final int RTP_PAYLOAD_FEC = 127; // assumed as in RFC 5109, 10.1
@@ -30,6 +32,7 @@ public class RtpHandler {
 
     private EncryptionMode encryptionMode;
     private FecHandler fecHandler = null;
+    private JpegEncryptionHandler jpegEncryptionHandler = null;
     private SrtpHandler srtpHandler = null;
 
     // server side
@@ -88,6 +91,8 @@ public class RtpHandler {
                 fecPacket = encryptedPacket;
             }
             break;
+        case JPEG:
+        case JPEG_ATTACK:
         default:
             break;
         }
@@ -130,8 +135,21 @@ public class RtpHandler {
      */
     public byte[] jpegToRtpPacket(final byte[] jpegImage, int framerate) {
         Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+
+        byte[] image = null;
+        switch (encryptionMode) {
+        case JPEG:
+            image = jpegEncryptionHandler.encrypt(jpegImage);
+            break;
+        case JPEG_ATTACK:
+        case SRTP:
+        default:
+            image = jpegImage;
+            break;
+        }
+
         byte[] payload;
-        JpegFrame frame = JpegFrame.getFromJpegBytes(jpegImage);
+        JpegFrame frame = JpegFrame.getFromJpegBytes(image);
         payload = frame.getAsRfc2435Bytes();
 
         currentSeqNb++;
@@ -152,6 +170,8 @@ public class RtpHandler {
         case SRTP:
             packetData = srtpHandler.transformToSrtp(packet);
             break;
+        case JPEG:
+        case JPEG_ATTACK:
         default:
             break;
         }
@@ -185,6 +205,25 @@ public class RtpHandler {
                 + (packetList.get(0).gettimestamp() & 0xFFFFFFFFL)
                 + " size: " + image.length);
 
+        byte[] decryptedImage = null;
+        switch (encryptionMode) {
+        case JPEG:
+            decryptedImage = jpegEncryptionHandler.decrypt(image);
+            if (decryptedImage != null) {
+                image = decryptedImage;
+            }
+            break;
+        case JPEG_ATTACK:
+            decryptedImage = jpegEncryptionHandler.replaceAttackDecryption(image);
+            if (decryptedImage != null) {
+                image = decryptedImage;
+            }
+            break;
+        case SRTP:
+        default:
+            break;
+        }
+
         return image;
     }
 
@@ -206,6 +245,8 @@ public class RtpHandler {
                 packet = decryptedPacket;
             }
             break;
+        case JPEG:
+        case JPEG_ATTACK:
         default:
             break;
         }
@@ -283,6 +324,14 @@ public class RtpHandler {
             if (srtpHandler == null) {
                 return false;
             }
+            break;
+        case JPEG:
+        case JPEG_ATTACK:
+            /* Use pre-shared key and salt to avoid key management and
+             * session initialization with a protocol.
+             */
+            jpegEncryptionHandler = new JpegEncryptionHandler(
+                    defaultKey, defaultSalt);
             break;
         case NONE:
         default:

@@ -4,7 +4,7 @@ Die Aufgaben beziehen sich auf den Beleg Videostreaming für das Modul Internett
 ## Aufgaben
 
 ### 1. RTSP-Protokoll im Client
-Ergänzen Sie die Klasse Client entsprechend der in der Projektbeschreibung und den Kommentaren im Quelltext gegebenen Hinweisen. Damit wird das RTSP-Protokoll im Client vervollständigt. Lassen die den Abschnitt zur Statistik zunächst unbearbeitet. Dieser Teil in Abschnitt 5 bearbeitet.
+Ergänzen Sie die Klasse Client entsprechend der in der Projektbeschreibung und den Kommentaren im Quelltext gegebenen Hinweisen. Damit wird das RTSP-Protokoll im Client vervollständigt. Lassen die den Abschnitt zur Statistik zunächst unbearbeitet. Dieser Teil wird in Abschnitt 5 bearbeitet.
 
 ### 2. RTSP-Methoden im Server
 Ergänzen Sie die RTSP-Methoden OPTIONS und DESCRIBE anhand der Beispiele aus [RFC 2326](https://www.ietf.org/rfc/rfc2326.txt) und [RFC 2327](https://www.ietf.org/rfc/rfc2327.txt). 

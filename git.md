@@ -27,6 +27,7 @@ Beispiel: `git remote add myrepo https://github.com/HTWDD-RN/sxxxxx-yyy-beleg`
 Aktualisierung des eigenen entfernten Repositories mit aktuellem Branch  
 `git push myrepo`
 
+Eventuell müssen Sie statt des Passwortes ein Token für den Zugriff nutzen, siehe [hier](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 
 ## Arbeiten im eigenen Branch
 Oft ist es sinnvoll, nicht im master-Branch zu arbeiten, sondern in einem eigenen Branch.

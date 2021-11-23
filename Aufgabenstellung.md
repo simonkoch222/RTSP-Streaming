@@ -20,13 +20,16 @@ Simulieren Sie Paketverluste und eine variable Verzögerung im Netz, indem Sie a
 
 ### 5. Anzeige von Statistiken am Client
 Um die simulierten Netzwerkeigenschaften prüfen zu können und die Leistungsfähigkeit der später zu integrierenden Fehlerschutzcodes einschätzen zu können, ist eine Statistikanzeige notwendig.
-Folgende Werte sollten mindestens am Client angezeigt werden:
-1. Anzahl erhaltener/verlorener Medienpakete + prozentuale Angabe
-2. Anzahl korrigierter/unkorrigierbarer Medienpakete
-3. Die Anzeige sollte bis zum Ende des Videos sekündlich aktualisiert werden und dann auf dem Gesamtstand stehen bleiben.
+Folgende Werte sollten mindestens peridisch am Client angezeigt werden:
+1. Puffergröße
+2. letzte empfangene Sequenznummer
+3. Anzahl erhaltener / verlorener Medienpakete + prozentuale Angabe verlorener Medienpakete
+4. Anzahl korrigierter / unkorrigierbarer Medienpakete + prozentuale Angabe unkorrigierbarer Medienpakete
+5. Abspielzähler (Pakete / Bilder)
+6. verlorene Bilder
 
 Mit dem ersten Punkt kann die Qualität der Verbindung eingeschätzt werden und mit dem zweiten Punkt die Leistungsfähigkeit des FEC-Verfahrens.
-Machen Sie sich Gedanken über weitere zu überwachende Parameter. Die meisten dieser Daten können aus dem FecHandler entnommen werden. Verifizieren Sie die korrekte Berechnung dieser Werte.
+Machen Sie sich Gedanken über weitere zu überwachende Parameter. Die meisten dieser Daten können aus der Klasse ReceptionStatistic entnommen werden. Verifizieren Sie die korrekte Berechnung dieser Werte.
 
 
 ### 6. Implementierung des FEC-Schutzes

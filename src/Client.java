@@ -292,9 +292,9 @@ public class Client {
         }
         else {
           //TASK change RTSP state and print out new state to console an statusLabel
-          state = READY;
-          statusLabel.setText("READY");
-          logger.log(Level.INFO, "New RTSP state: READY\n");
+          state = PLAYING;
+          statusLabel.setText("PLAYING");
+          logger.log(Level.INFO, "New RTSP state: PLAYING\n");
           // start the timer
           timer.start();
           timerPlay.start();
@@ -354,9 +354,9 @@ public class Client {
       else {
         // TASK change RTSP state and print out new state to console and statusLabel
         // state = ....
-        state = READY;
-        statusLabel.setText("READY");
-        logger.log(Level.INFO, "New RTSP state: READY\n");
+        state = INIT;
+        statusLabel.setText("INIT");
+        logger.log(Level.INFO, "New RTSP state: INIT\n");
         // stop the timer
         timer.stop();
         timerPlay.stop();

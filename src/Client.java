@@ -469,26 +469,45 @@ public class Client {
     //TASK complete the statistics
     private void setStatistics(ReceptionStatistic rs) {
       DecimalFormat df = new DecimalFormat("###.###");
+      float ratio=0;
+
+      if(rs.playbackIndex == 0)
+        ratio=0 ;
+      else
+        ratio=((float)rs.packetsLost/(float)rs.playbackIndex)*100;
+
       pufferLabel.setText(
               "Puffer: "
-                      + ""  //
+                      + (rs.latestSequenceNumber - rs.playbackIndex)
+                      + " Bytes //"  //
                       + " aktuelle Nr. / Summe empf.: "
+                      + rs.latestSequenceNumber
                       + " / "
-                      + "");
+                      + rs.receivedPackets);
       statsLabel.setText(
               "<html>Abspielzähler / verlorene Medienpakete // Bilder / verloren: "
-                      + ""
-                      + " / "
-                      + ""
+                      + rs.playbackIndex + " / "
+                      + rs.packetsLost + " // "
+                      + rs.requestedFrames  + " / "
+                      + rs.framesLost
+                      + " Ratio: "
+                      + ratio + "%"
                       + "<p/>"
                       + "</html>");
+
+      if((rs.packetsLost + rs.receivedPackets) == 0)
+        ratio=0 ;
+      else
+        ratio=((float)rs.correctedPackets/(float)(rs.packetsLost +(float)rs.receivedPackets))* 100;
+
       fecLabel.setText(
               "FEC: korrigiert / nicht korrigiert: "
                       + ""
-                      + " / "
+                      + rs.correctedPackets + " / "
+                      + rs.notCorrectedPackets
                       + ""
                       + "  Ratio: "
-                      + "");
+                      +ratio + "%");
     }
   }
 

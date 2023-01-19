@@ -75,8 +75,8 @@ public class FecHandler {
     // init new FEC packet if necessary
     if (fec == null) {
       fec =
-          new FECpacket(
-              FEC_PT, fecSeqNr, rtp.gettimestamp(), fecGroupSize, rtp.getsequencenumber());
+              new FECpacket(
+                      FEC_PT, fecSeqNr, rtp.gettimestamp(), fecGroupSize, rtp.getsequencenumber());
       fec.setUlpLevelHeader(0, 0, fecGroupSize);
     }
 
@@ -131,7 +131,9 @@ public class FecHandler {
     // build fec from rtp
     fec = new FECpacket(rtp.getpacket(), rtp.getpacket().length);
     // TASK remove comment for debugging
-    // fec.printHeaders();
+
+    //OKay drann dneken wieder ein zu machen !!
+    fec.printHeaders();
 
     // stores fec
     int seqNrFec = fec.getsequencenumber();
@@ -157,7 +159,41 @@ public class FecHandler {
    */
   public boolean checkCorrection(int nr, HashMap<Integer, RTPpacket> mediaPackets) {
     //TASK complete this method!
-    return false;
+
+
+    // wenn nur ein Paket der Gruppe fehlt -> korrigierbar
+    //  FEC-Pakete verloren?
+    /*
+     Index-Nummer nr des verlorenen Pakets -> RTP- suchen Indizes der zugehörigen Pakete
+     -> steht in fecListe
+     Indizes die nicht in mediaPackets sind -> zählen
+     */
+
+    /*
+     * wichtige parameter
+     *
+     * HashMap<Integer, FECpacket> fecStack = new HashMap<>(); // list of fec packets
+     * HashMap<Integer, Integer> fecNr = new HashMap<>(); // Snr of corresponding fec packet
+     * HashMap<Integer, List<Integer>> fecList = new HashMap<>(); // list of involved media packets
+     * */
+
+
+    // FEC-Paket weg
+    if(fecList.get(nr)==null){
+      return false;
+    }
+    //okay haben FEC PAcket -> schauene was noch so fehlt
+    //https://stackoverflow.com/questions/29625529/hashmap-with-streams-in-java-8-streams-to-collect-value-of-map
+    int counter=0;
+    List<Integer> l= fecList.get(nr);
+    for(Integer i : l){
+      if(mediaPackets.get(i)!=null){
+        counter++;
+      }
+    }
+
+
+    return (counter>= l.size()-1 );
   }
 
   /**
@@ -167,7 +203,38 @@ public class FecHandler {
    * @return RTP packet
    */
   public RTPpacket correctRtp(int nr, HashMap<Integer, RTPpacket> mediaPackets) {
-    //TASK complete this method!
+
+    //nr ist nur für das zu kortrigierende Packet ?
+
+    // XOR der dazugehörigen mit FEC
+    // fec.getRtpList - involvierten Media-RTPs -> benötigen die fecNr
+    // getPacket() - komplettes FEC-Paket -<y Bytearray
+    // addRtp() macht meine berechnungen
+    // getLostRtp() generiert mir dann mein verlorenes
+
+    /*
+     * wichtige parameter
+     *
+     * HashMap<Integer, FECpacket> fecStack = new HashMap<>(); // list of fec packets
+     * HashMap<Integer, Integer> fecNr = new HashMap<>(); // Snr of corresponding fec packet
+     * HashMap<Integer, List<Integer>> fecList = new HashMap<>(); // list of involved media packets
+     * */
+
+
+    //involvierten Media-RTPs
+
+    List<Integer>InvoPackete = fecList.get(nr);
+
+    int fnr = fecNr.get(nr);
+    fec = fecStack.get(fnr);
+
+    for(int x : InvoPackete) {
+      if(x!=nr){
+        rtp= mediaPackets.get(x);
+        fec.addRtp(rtp);
+      }
+    }
+
     return fec.getLostRtp(nr);
   }
 
@@ -178,6 +245,8 @@ public class FecHandler {
    */
   private void clearStack(int nr) {
     //TASK complete this method!
+
+    //kommt nicht vor
   }
 
   // *************** Receiver Statistics ***********************************************************

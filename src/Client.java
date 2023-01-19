@@ -498,7 +498,7 @@ public class Client {
       if((rs.packetsLost + rs.receivedPackets) == 0)
         ratio=0 ;
       else
-        ratio=((float)rs.correctedPackets/(float)(rs.packetsLost +(float)rs.receivedPackets))* 100;
+        ratio=((float)rs.notCorrectedPackets/(float)(rs.latestSequenceNumber))* 100;
 
       fecLabel.setText(
               "FEC: korrigiert / nicht korrigiert: "
